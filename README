@@ -1,0 +1,3 @@
+The python code is only designed to work with Banshee media player on Ubuntu. The Arduino
+ must be running the sketch when the script is launched. You will probably need to modify the 
+script to use the right serial port.
