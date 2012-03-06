@@ -34,7 +34,7 @@
 #include <avr/pgmspace.h>
 //include <LiquidCrystal.h>
 #include <SPI_VFD.h>
-#include "ircodes.h"
+#include <IRremote.h>
 
 /* This function places the current value of the heap and stack pointers in the
  * variables. You can call it from any place in your code and save the data for
@@ -56,7 +56,7 @@ void print_P(Print& device, const PROGMEM char* s)
 {
   for (size_t i = 0; i < strlen_P(s); ++i)
   {
-    device.print(pgm_read_byte_near(s + i));
+    device.print(char(pgm_read_byte_near(s + i)));
   }
 }
 
@@ -65,15 +65,6 @@ void println_P(Print& device, const PROGMEM char* s)
   print_P(device, s);
   device.println();
 }
-
-// We need to use the 'raw' pin reading methods
-// because timing is very important here and the digitalRead()
-// procedure is slower!
-//uint8_t IRpin = 2;
-// Digital pin #2 is the same as Pin D2 see
-// http://arduino.cc/en/Hacking/PinMapping168 for the 'raw' pin mapping
-#define IRpin_PIN PIND
-#define IRpin 5
 
 #define PIN_LCD_R 9
 #define PIN_LCD_G 10
@@ -88,25 +79,6 @@ void println_P(Print& device, const PROGMEM char* s)
 #define PIN_LCD_D6 7
 #define PIN_LCD_D7 8
 
-
-// the maximum pulse we'll listen for - 65 milliseconds is a long time
-#define MAXPULSE 3000
-
-//const uint8_t MAX_LENGTH PROGMEM = SONY_BLURAY_LENGTH;
-#define MAX_LENGTH SONY_BLURAY_LENGTH
-
-// what our timing resolution should be, larger is better
-// as its more 'precise' - but too large and you wont get
-// accurate timing
-#define RESOLUTION 20
-
-// What percent we will allow in variation to match the same code
-#define FUZZINESS 20
-
-// we will store up to 100 pulse pairs (this is -a lot-)
-uint16_t pulses[MAX_LENGTH][2]; // pair is high and low pulse
-uint8_t currentpulse = 0; // index for pulses we're storing
-
 #define MAX_STRING_LENGTH 64
 #define LCD_WIDTH 20
 
@@ -118,6 +90,8 @@ uint8_t currentpulse = 0; // index for pulses we're storing
 
 #define SCROLL_TICK 200
 #define MESSAGE_WAIT 2000
+
+uint8_t repeat = 0;
 
 uint8_t command = 0; //current LCD control command
 uint8_t parameters_left = 0;
@@ -134,6 +108,8 @@ int16_t scroll_timeout = 0;
 int16_t message_timeout = 0;
 uint8_t scrollState = 0;
 
+IRrecv irrecv(5);
+decode_results results;
 // initialize the library with the numbers of the interface pins
 SPI_VFD lcd(8, 9, 10);//LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_E, PIN_LCD_D4, PIN_LCD_D5, PIN_LCD_D6, PIN_LCD_D7);
 
@@ -142,17 +118,18 @@ void setup(void) {
     //println_P(Serial, PSTR("IR COMMANDER"));
     // set up the LCD's number of columns and rows: 
     lcd.begin(LCD_WIDTH, 2);
+    irrecv.enableIRIn();
     //~ analogWrite(PIN_LCD_R, 255);
     //~ analogWrite(PIN_LCD_G, 255);
     //~ analogWrite(PIN_LCD_B, 255);
     //~ analogWrite(PIN_LCD_VO, 64);
     message_timeout = 0;
-    /*check_mem();
+    check_mem();
     if(stackptr > heapptr) {
         Serial.println(stackptr - heapptr);
     } else {
         println_P(Serial, PSTR("Out of memory!"));
-    }*/
+    }
 }
 void loop(void) {
     pollForRemote();
@@ -160,62 +137,116 @@ void loop(void) {
     updateLCD();
 }
 void pollForRemote(void) {
-  uint8_t numberpulses = listenForIR();
-  if (IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayPlaySignal)) {
-    println_P(Serial, PSTR("play"));
-  } else if (IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayNextSignal)) {
-    println_P(Serial, PSTR("next"));
-  } else if (IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayPreviousSignal)) {
-    println_P(Serial, PSTR("previous"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayPauseSignal)) {
-    println_P(Serial, PSTR("pause"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayStopSignal)) {
-    println_P(Serial, PSTR("stop"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayFastForwardSignal)) {
-    println_P(Serial, PSTR("fast forward"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayRewindSignal)) {
-    println_P(Serial, PSTR("rewind"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayMenuSignal)) {
-    println_P(Serial, PSTR("menu"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayLeftSignal)) {
-    println_P(Serial, PSTR("left"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayRightSignal)) {
-    println_P(Serial, PSTR("right"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayUpSignal)) {
-    println_P(Serial, PSTR("up"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayDownSignal)) {
-    println_P(Serial, PSTR("down"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayEnterSignal)) {
-    println_P(Serial, PSTR("enter"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayExitSignal)) {
-    println_P(Serial, PSTR("exit"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayPowerSignal)) {
-    println_P(Serial, PSTR("power"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayGuideSignal)) {
-    println_P(Serial, PSTR("guide"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayYellowSignal)) {
-    println_P(Serial, PSTR("yellow"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayBlueSignal)) {
-    println_P(Serial, PSTR("blue"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayRedSignal)) {
-    println_P(Serial, PSTR("red"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayGreenSignal)) {
-    println_P(Serial, PSTR("green"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayOptionsSignal)) {
-    println_P(Serial, PSTR("options"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayTopMenuSignal)) {
-    println_P(Serial, PSTR("top menu"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayPopupMenuSignal)) {
-    println_P(Serial, PSTR("dvd menu"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayAudioSignal)) {
-    println_P(Serial, PSTR("audio"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBluraySubtitleSignal)) {
-    println_P(Serial, PSTR("subtitle"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayAngleSignal)) {
-    println_P(Serial, PSTR("angle"));
-  } else if(IRcompare(numberpulses, SONY_BLURAY_LENGTH, SonyBlurayDisplaySignal)) {
-    println_P(Serial, PSTR("display"));
-  }
+    if(irrecv.decode(&results)) {
+        if(repeat == 0) {
+            if(results.decode_type == SONY) {
+                switch(results.value) {
+                    case 0x58B47:
+                        println_P(Serial, PSTR("play"));
+                        break;
+                     case 0x6AB47:
+                        println_P(Serial, PSTR("next"));
+                         break;
+                    case 0xEAB47:
+                        println_P(Serial, PSTR("previous"));
+                        break;
+                     case 0x98B47:
+                        println_P(Serial, PSTR("pause"));
+                        break;
+                     case 0x18B47:
+                        println_P(Serial, PSTR("stop"));
+                        break;
+                     case 0x38B47:
+                        println_P(Serial, PSTR("fast forward"));
+                        break;
+                     case 0xD8B47:
+                        println_P(Serial, PSTR("rewind"));
+                        break;
+                     case 0x42B47:
+                        println_P(Serial, PSTR("menu"));
+                        break;
+                     case 0xDCB47:
+                        println_P(Serial, PSTR("left"));
+                        break;
+                     case 0x3CB47:
+                        println_P(Serial, PSTR("right"));
+                        break;
+                     case 0x9CB47:
+                        println_P(Serial, PSTR("up"));
+                        break;
+                     case 0x5CB47:
+                        println_P(Serial, PSTR("down"));
+                        break;
+                     case 0xBCB47:
+                        println_P(Serial, PSTR("enter"));
+                        break;
+                     case 0xC2B47:
+                        println_P(Serial, PSTR("exit"));
+                        break;
+                     case 0xA8B47:
+                        println_P(Serial, PSTR("power"));
+                        break;
+                     case 0x54B47:
+                        println_P(Serial, PSTR("guide"));
+                        break;
+                     case 0x96B47:
+                        println_P(Serial, PSTR("yellow"));
+                        break;
+                     case 0x66B47:
+                        println_P(Serial, PSTR("blue"));
+                        break;
+                     case 0xE6B47:
+                        println_P(Serial, PSTR("red"));
+                        break;
+                     case 0x16B47:
+                        println_P(Serial, PSTR("green"));
+                        break;
+                     case 0xFCB47:
+                        println_P(Serial, PSTR("options"));
+                        break;
+                     case 0x34B47:
+                        println_P(Serial, PSTR("top menu"));
+                        break;
+                     case 0x94B47:
+                        println_P(Serial, PSTR("pop up/menu"));
+                        break;
+                     case 0x26B47:
+                        println_P(Serial, PSTR("audio"));
+                        break;
+                     case 0xC6B47:
+                        println_P(Serial, PSTR("subtitle"));
+                        break;
+                     case 0xA6B47:
+                        println_P(Serial, PSTR("angle"));
+                        break;
+                     case 0x82B47:
+                        println_P(Serial, PSTR("display"));
+                        break;
+                    default:
+                        Serial.print(results.value, HEX);
+                }
+                repeat = 3;
+            } else {
+                //report unrecognized code and continue
+                if (results.decode_type == NEC) {
+                  Serial.print("Decoded NEC: ");
+                } 
+                else if (results.decode_type == SONY) {
+                  Serial.print("Decoded SONY: ");
+                } 
+                else if (results.decode_type == RC5) {
+                  Serial.print("Decoded RC5: ");
+                } 
+                else if (results.decode_type == RC6) {
+                  Serial.print("Decoded RC6: ");
+                }
+                Serial.print(results.value, HEX);
+            }
+        } else {
+            --repeat;
+        }
+        irrecv.resume();
+    }
 }
 
 static void commandComplete(void) {
@@ -418,77 +449,4 @@ void updateLCD(void) {
             scroll_timeout = SCROLL_TICK;
         }
     }
-}
-
-boolean IRcompare(uint8_t numpulses, uint8_t signalLength, const int16_t Signal[]) {
-  if(numpulses < signalLength) return false;
-  for (uint8_t i=0; i< numpulses-1 && i < signalLength-1; i++) {
-    int16_t oncode = pulses[i][1] * RESOLUTION / 10;
-    int16_t offcode = pulses[i+1][0] * RESOLUTION / 10;
-    // check to make sure the error is less than FUZZINESS percent
-    int16_t stored_code = pgm_read_word(&(Signal[i*2 + 0]));
-    if ( abs(oncode - stored_code) <= (stored_code * FUZZINESS / 100)) {
-        //println_P(Serial, PSTR("ok"));
-    } else {
-        // we didn't match perfectly, return a false match
-        //println_P(Serial, PSTR("no"));
-        return false;
-    }
-    stored_code = pgm_read_word(&(Signal[i*2 + 1]));
-    if ( abs(offcode - stored_code) <= (stored_code * FUZZINESS / 100)) {
-        //println_P(Serial, PSTR("ok"));
-    } else {
-        // we didn't match perfectly, return a false match
-        //println_P(Serial, PSTR("ok"));
-        return false;
-    }
-  }
-  // Everything matched!
-  return true;
-}
-
-uint8_t listenForIR(void) {
-  currentpulse = 0;
-  
-  while (1) {
-    uint16_t highpulse, lowpulse; // temporary storage timing
-    highpulse = lowpulse = 0; // start out with no pulse length
-  
-// while (digitalRead(IRpin)) { // this is too slow!
-    while (IRpin_PIN & (1 << IRpin)) {
-       // pin is still HIGH
-
-       // count off another few microseconds
-       highpulse++;
-       delayMicroseconds(RESOLUTION);
-
-       // If the pulse is too long, we 'timed out' - either nothing
-       // was received or the code is finished, so print what
-       // we've grabbed so far, and then reset
-       if ((highpulse >= MAXPULSE) /*&& (currentpulse != 0)*/) {
-         return currentpulse;
-       }
-    }
-    // we didn't time out so lets stash the reading
-    if(currentpulse < MAX_LENGTH) {
-	pulses[currentpulse][0] = highpulse;
-    }
-  
-    // same as above
-    while (! (IRpin_PIN & _BV(IRpin))) {
-       // pin is still LOW
-       lowpulse++;
-       delayMicroseconds(RESOLUTION);
-       if ((lowpulse >= MAXPULSE) && (currentpulse != 0)) {
-         return currentpulse;
-       }
-    }
-    if(currentpulse < MAX_LENGTH) {
-	pulses[currentpulse][1] = lowpulse;
-    }
-
-    // we read one high-low pulse successfully, continue!
-    currentpulse++;
-  }
-  return currentpulse;
 }
