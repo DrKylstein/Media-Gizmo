@@ -32,7 +32,8 @@
  */
 
 #include <avr/pgmspace.h>
-#include <LiquidCrystal.h>
+//include <LiquidCrystal.h>
+#include <SPI_VFD.h>
 #include "ircodes.h"
 
 /* This function places the current value of the heap and stack pointers in the
@@ -107,7 +108,7 @@ uint16_t pulses[MAX_LENGTH][2]; // pair is high and low pulse
 uint8_t currentpulse = 0; // index for pulses we're storing
 
 #define MAX_STRING_LENGTH 64
-#define LCD_WIDTH 16
+#define LCD_WIDTH 20
 
 #define CMD_SET_TITLE 0x80
 #define CMD_SET_ARTIST 0x81
@@ -134,17 +135,17 @@ int16_t message_timeout = 0;
 uint8_t scrollState = 0;
 
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_E, PIN_LCD_D4, PIN_LCD_D5, PIN_LCD_D6, PIN_LCD_D7);
+SPI_VFD lcd(8, 9, 10);//LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_E, PIN_LCD_D4, PIN_LCD_D5, PIN_LCD_D6, PIN_LCD_D7);
 
 void setup(void) {
     Serial.begin(9600);
     //println_P(Serial, PSTR("IR COMMANDER"));
     // set up the LCD's number of columns and rows: 
     lcd.begin(LCD_WIDTH, 2);
-    analogWrite(PIN_LCD_R, 255);
-    analogWrite(PIN_LCD_G, 255);
-    analogWrite(PIN_LCD_B, 255);
-    analogWrite(PIN_LCD_VO, 64);
+    //~ analogWrite(PIN_LCD_R, 255);
+    //~ analogWrite(PIN_LCD_G, 255);
+    //~ analogWrite(PIN_LCD_B, 255);
+    //~ analogWrite(PIN_LCD_VO, 64);
     message_timeout = 0;
     /*check_mem();
     if(stackptr > heapptr) {
@@ -352,9 +353,9 @@ void updateColor(void) {
     r = 255 - (r >> 1);
     g = 255 - g;
     b = 255 - b;
-    analogWrite(PIN_LCD_R, r);
-    analogWrite(PIN_LCD_G, g);
-    analogWrite(PIN_LCD_B, b);
+    //~ analogWrite(PIN_LCD_R, r);
+    //~ analogWrite(PIN_LCD_G, g);
+    //~ analogWrite(PIN_LCD_B, b);
 }
 
 void updateLCD(void) {
