@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
- # Copyright (c) 2011 Kyle Delaney
+ # Copyright (c) 2012 Kyle Delaney
  # All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -39,7 +39,7 @@ import pygame.time
 from unidecode import unidecode
 
 import sys
-sys.stderr = sys.stdout = open('/home/kyle/ir-remote.log', mode='a+')
+#sys.stderr = sys.stdout = open('/home/kyle/ir-remote.log', mode='a+')
 
 class Remote_Input(object):
     
@@ -69,26 +69,26 @@ class LCD(object):
     
     def __init__(self, serial):
         self._serial = serial
-        #self.set_color((255,255,255))
     
-    def set_color(self, rgb):
-        self._serial.write(bytearray([CMD_SET_COLOR, rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1]))
-                
     def change_track(self, title, artist):
+        self.change_title(title)
+        self.change_artist(artist)
+        
+    def change_title(self, title):
         data = bytearray()
         data.append(CMD_SET_TITLE)
         data.append(len(title))
         data.extend(unidecode(title))
         self._serial.write(data);
         
+    def change_artist(self, artist):
         data = bytearray()
         data.append(CMD_SET_ARTIST)
         data.append(len(artist))
         data.extend(unidecode(artist))
         self._serial.write(data);
-    
-    def display_message(self, text, rgb):
-        self._serial.write(bytearray([CMD_SET_MESSAGE_COLOR, rgb[0] >> 1, rgb[1] >> 1, rgb[2] >> 1]))
+        
+    def display_message(self, text):
         data = bytearray()
         data.append(CMD_SET_MESSAGE)
         data.append(len(text))
@@ -103,6 +103,7 @@ class Media_Player(object):
         self.artist = ''
         self.title = ''
         self._handler = None
+        self._playback_handler = None
         
     def poll(self):
         if 'playing' in subprocess.check_output(['banshee', '--query-current-state', '--no-present']):
@@ -168,68 +169,35 @@ if __name__ == '__main__':
             media_player = Media_Player()
             media_player.attach_track_change_listener(lcd.change_track)
 
-            #~ color = [255,255,255]
-
-            def play_pause(playing):
-                if playing is False:
-                    #lcd.display_message('[Pause]', (255,255,0))
-                    lcd.set_color((128,0,0))
-                elif playing is True:
-                    #lcd.display_message('[Play]', (0,255,0))
-                    lcd.set_color((255,0,32))
-                else:
-                    #lcd.display_message('[Stop]', (255,0,0))
-                    lcd.set_color((0,0,0))
-
-            media_player.attach_playback_listener(play_pause)
+            #media_player.attach_playback_listener(play_pause)
 
             def play():
                 media_player.play()
-                lcd.display_message('[Play]', (0,255,0))
+                lcd.display_message('[Play]')
             def pause():
                 media_player.pause()
-                lcd.display_message('[Pause]', (255,255,0))
+                lcd.display_message('[Pause]')
             def next():
                 media_player.next_track()
-                lcd.display_message('[Next]', (255,0,255))
+                lcd.display_message('[Next]')
             def previous():
                 media_player.previous_track()
-                lcd.display_message('[Previous]', (255,0,255))
+                lcd.display_message('[Previous]')
             def stop():
                 media_player.stop()
             def display():
                 media_player.fullscreen()
-                lcd.display_message('[Fullscreen]', (255,0,255))
+                lcd.display_message('[Fullscreen]')
             def options():
                 media_player.hide()
-                lcd.display_message('[Hide]', (255,0,255))
+                lcd.display_message('[Hide]')
             def menu():
                 media_player.show()
-                lcd.display_message('[Show]', (255,0,255))
+                lcd.display_message('[Show]')
             def power():
-                #serial_.setDTR(False) # Drop DTR
-                #time.sleep(0.022)    # Read somewhere that 22ms is what the UI does.
-                #serial_.setDTR(True)  # UP the DTR back 
-                #subprocess.Popen(['gnome-session-quit', '--power-off']) #subprocess.call(['gnome-session-quit', '--power-off', '--no-prompt'])
                 print(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
             def yellow():
-                lcd.display_message(time.strftime('%I:%M %p, %a'), (255,255,255))
-            #~ def red():
-                #~ color[0] -= 32
-                #~ if color[0] < 0:
-                    #~ color[0] = 255
-                #~ play_pause(media_player.playing)
-            #~ def green():
-                #~ color[1] -= 32
-                #~ if color[1] < 0:
-                    #~ color[1] = 255
-                #~ play_pause(media_player.playing)
-            #~ def blue():
-                #~ color[2] -= 32
-                #~ if color[2] < 0:
-                    #~ color[2] = 255
-                #~ play_pause(media_player.playing)
-            
+                lcd.display_message(time.strftime('%I:%M %p, %a'))
                 
             remote.bind('play', play)
             remote.bind('pause', pause)
@@ -241,13 +209,9 @@ if __name__ == '__main__':
             remote.bind('menu', menu)
             remote.bind('power', power)
             remote.bind('yellow', yellow)
-            #~ remote.bind('red', red)
-            #~ remote.bind('green', green)
-            #~ remote.bind('blue', blue)
 
             clock = pygame.time.Clock()
-            time.sleep(1)
-            play_pause(media_player.playing)
+            time.sleep(1) #Give Arduino some time to setup.
             while True:
                 time_elapsed = clock.tick(15)
                 media_player.poll()
