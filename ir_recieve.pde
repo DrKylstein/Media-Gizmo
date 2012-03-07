@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Kyle Delaney
+ * Copyright (c) 2012 Kyle Delaney
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@
 //include <LiquidCrystal.h>
 #include <SPI_VFD.h>
 #include <IRremote.h>
+#include <aJSON.h>
 
 /* This function places the current value of the heap and stack pointers in the
  * variables. You can call it from any place in your code and save the data for
@@ -94,8 +95,8 @@ void println_P(Print& device, const PROGMEM char* s)
 uint8_t repeat = 0;
 
 uint8_t command = 0; //current LCD control command
-uint8_t parameters_left = 0;
-uint8_t title_length, artist_length, message_length;
+uint8_t payloadSize = 0;
+uint8_t titleLength, artistLength, msgLength;
 char title[MAX_STRING_LENGTH];
 char artist[MAX_STRING_LENGTH];
 char message[MAX_STRING_LENGTH];
@@ -105,7 +106,7 @@ uint8_t scrollTop = 0;
 uint8_t scrollBottom = 0;
 unsigned long last_time = 0;
 int16_t scroll_timeout = 0;
-int16_t message_timeout = 0;
+int16_t msgTimeout = 0;
 uint8_t scrollState = 0;
 
 IRrecv irrecv(5);
@@ -115,7 +116,7 @@ SPI_VFD lcd(8, 9, 10);//LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_E, PIN_LCD_D4, PIN
 
 void setup(void) {
     Serial.begin(9600);
-    //println_P(Serial, PSTR("IR COMMANDER"));
+    Serial.setTimeout(1000);
     // set up the LCD's number of columns and rows: 
     lcd.begin(LCD_WIDTH, 2);
     irrecv.enableIRIn();
@@ -123,7 +124,7 @@ void setup(void) {
     //~ analogWrite(PIN_LCD_G, 255);
     //~ analogWrite(PIN_LCD_B, 255);
     //~ analogWrite(PIN_LCD_VO, 64);
-    message_timeout = 0;
+    msgTimeout = 0;
     check_mem();
     if(stackptr > heapptr) {
         Serial.println(stackptr - heapptr);
@@ -249,11 +250,6 @@ void pollForRemote(void) {
     }
 }
 
-static void commandComplete(void) {
-    command = 0;
-    //println_P(Serial, PSTR("Ok."));
-}
-
 void resetScroll(void) {
     scrollTop = scrollBottom = scrollState = 0;
     scroll_timeout = SCROLL_TICK;
@@ -262,79 +258,44 @@ void resetScroll(void) {
 }
 
 void pollSerial() {
-    while(Serial.available()) {
-        // command byte recieved
-        if(Serial.peek() & 0x80) {
+    if(command == 0) {
+        if(Serial.available() >= 2) {
             command = Serial.read();
-            if(command == CMD_SET_TITLE || command == CMD_SET_ARTIST || command == CMD_SET_MESSAGE) {
-                //println_P(Serial, PSTR("Text command."));
-                parameters_left = 0xFF;
-            } else if(command == CMD_SET_COLOR || command == CMD_SET_MESSAGE_COLOR) {
-                //println_P(Serial, PSTR("Color command."));
-                parameters_left = 3;
+            payloadSize = Serial.read();
+            switch(command) {
+                case CMD_SET_TITLE:
+                    titleLength = payloadSize;
+                    break;
+                case CMD_SET_ARTIST:
+                    artistLength = payloadSize;
+                    break;
+                case CMD_SET_MESSAGE:
+                    msgLength = payloadSize;
+                    break;
+                default:
+                    command = 0;
+                    payloadSize = 0;
+                    Serial.flush();
             }
-        } else {
-        // parameter byte recieved
-            if(command == CMD_SET_TITLE || command == CMD_SET_ARTIST || command == CMD_SET_MESSAGE) {
-                if(parameters_left == 0xFF) {
-                    uint8_t length = Serial.read();
-                    if(length > MAX_STRING_LENGTH) {
-                        length = MAX_STRING_LENGTH;
-                        println_P(Serial, PSTR("Text truncated."));
-                    }
-                    parameters_left = length;
-                    if(command == CMD_SET_TITLE) {
-                        title_length = length;
-                    } else if(command == CMD_SET_ARTIST) {
-                        artist_length = length;
-                    } else if(command == CMD_SET_MESSAGE) {
-                        message_length = length;
-                    }
-                } else { 
-                    if(command == CMD_SET_TITLE) {
-                        title[title_length - parameters_left] = Serial.read();
-                        if(parameters_left == 1) {
-                            resetScroll();
-                            //rewriteTop();
-                        }
-                    } else if(command == CMD_SET_ARTIST) {
-                        artist[artist_length - parameters_left] = Serial.read();
-                        if(parameters_left == 1 && message_timeout <= 0) {
-                            resetScroll();
-                            //rewriteBottom();
-                        }
-                    } else if(command == CMD_SET_MESSAGE) {
-                        message[message_length - parameters_left] = Serial.read();
-                        if(parameters_left == 1) {
-                            message_timeout = MESSAGE_WAIT;
-                            rewriteBottom();
-                            //resetScroll();
-                            updateColor();
-                        }
-                    }
-                    --parameters_left;
-                    if(parameters_left == 0) {
-                        commandComplete();
-                    }
-                }
-            } else if(command == CMD_SET_COLOR) {
-                //println_P(Serial, PSTR("Color recieved."));
-                main_color[3-parameters_left] = Serial.read() << 1;
-                --parameters_left;
-                if(parameters_left == 0) {
-                    commandComplete();
-                    updateColor();
-                }
-            } else if(command == CMD_SET_MESSAGE_COLOR) { //should preceed SET_MESSAGE command
-                message_color[3-parameters_left] = Serial.read() << 1;
-                --parameters_left;
-                if(parameters_left == 0) {
-                    commandComplete();
-                    //updateColor();
-                }
-            } else {
-                Serial.read(); //discard garbage data
-            }
+        }
+    }
+    while(Serial.available()) {
+        switch(command) {
+            case CMD_SET_TITLE:
+                title[titleLength - payloadSize] = Serial.read();
+                break;
+            case CMD_SET_ARTIST:
+                artist[artistLength - payloadSize] = Serial.read();
+                break;
+            case CMD_SET_MESSAGE:
+                message[msgLength - payloadSize] = Serial.read();
+                break;
+        }
+        --payloadSize;
+        if(payloadSize == 0) {
+            resetScroll();
+            command = 0;
+            break;
         }
     }
 }
@@ -342,7 +303,7 @@ void pollSerial() {
 void rewriteTop(void) {
     lcd.setCursor(0,0);
     for(int i=0; i<LCD_WIDTH; ++i) {
-        if(scrollTop+i >= title_length) {
+        if(scrollTop+i >= titleLength) {
             lcd.write(0x20);
         } else {
             lcd.write(title[scrollTop+i]);
@@ -351,9 +312,9 @@ void rewriteTop(void) {
 }
 void rewriteBottom(void) {
     lcd.setCursor(0,1);
-    if(message_timeout > 0) {
+    if(msgTimeout > 0) {
         for(int i=0; i<LCD_WIDTH; ++i) {
-            if(i >= message_length) {
+            if(i >= msgLength) {
                 lcd.write(0x20);
             } else {
                 lcd.write(message[i]);
@@ -361,7 +322,7 @@ void rewriteBottom(void) {
         }
     } else {
         for(int i=0; i<LCD_WIDTH; ++i) {
-            if(scrollBottom+i >= artist_length) {
+            if(scrollBottom+i >= artistLength) {
                 lcd.write(0x20);
             } else {
                 lcd.write(artist[scrollBottom+i]);
@@ -370,33 +331,13 @@ void rewriteBottom(void) {
     }
 }
 
-void updateColor(void) {
-    uint8_t r,g,b;
-    if(message_timeout > 0) {
-        r = message_color[0];
-        g = message_color[1];
-        b = message_color[2];
-    } else {
-        r = main_color[0];
-        g = main_color[1];
-        b = main_color[2];
-    }
-    r = 255 - (r >> 1);
-    g = 255 - g;
-    b = 255 - b;
-    //~ analogWrite(PIN_LCD_R, r);
-    //~ analogWrite(PIN_LCD_G, g);
-    //~ analogWrite(PIN_LCD_B, b);
-}
-
 void updateLCD(void) {
     unsigned long time_elapsed = millis() - last_time;
     last_time = millis();
-    if(message_timeout > 0) {
-        message_timeout -= time_elapsed;
-        if(message_timeout <= 0) {
+    if(msgTimeout > 0) {
+        msgTimeout -= time_elapsed;
+        if(msgTimeout <= 0) {
             rewriteBottom();
-            updateColor();
         }
     } else {
         scroll_timeout -= time_elapsed;
@@ -404,7 +345,7 @@ void updateLCD(void) {
             switch(scrollState) {
                 case 0:
                     //println_P(Serial, PSTR("top forward."));
-                    if(scrollTop >= title_length - LCD_WIDTH) {
+                    if(scrollTop >= titleLength - LCD_WIDTH) {
                         //println_P(Serial, PSTR("to 1."));
                         ++scrollState;
                     } else {
@@ -425,8 +366,8 @@ void updateLCD(void) {
                 case 2:
                     //println_P(Serial, PSTR("bottom forward."));
                     if(
-                        (message_timeout > 0 && scrollBottom >= message_length - LCD_WIDTH) ||
-                        (message_timeout <= 0 && scrollBottom >= artist_length - LCD_WIDTH)
+                        (msgTimeout > 0 && scrollBottom >= msgLength - LCD_WIDTH) ||
+                        (msgTimeout <= 0 && scrollBottom >= artistLength - LCD_WIDTH)
                     ) {
                         ++scrollState;
                          //println_P(Serial, PSTR("to 3."));
