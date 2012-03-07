@@ -38,16 +38,19 @@
 #define MAX_STRING_LENGTH 64
 #define COLUMNS 20
 
-#define CMD_SET_TITLE 0x80
-#define CMD_SET_ARTIST 0x81
-#define CMD_SET_MESSAGE 0x83
+#define CMD_SET_TITLE 'T'
+#define CMD_SET_ARTIST 'A'
+#define CMD_SET_MESSAGE 'M'
+#define CMD_CLEAR 'C'
+#define CMD_SEND_CODE 'S'
 
 #define SCROLL_TICK 200
 #define MESSAGE_WAIT 2000
-
+//Global Variables
 //IR
 decode_results results;
 uint8_t repeat = 0;
+boolean rc5Toggle = false;
 //Command parsing
 uint8_t command = 0;
 uint8_t payloadSize = 0;
@@ -64,6 +67,7 @@ int16_t scrollTimeout = 0;
 int16_t msgTimeout = 0;
 uint8_t scrollState = 0;
 
+//Utility Functions
 void print_P(Print& device, const PROGMEM char* s)
 {
   for (size_t i = 0; i < strlen_P(s); ++i)
@@ -77,9 +81,12 @@ void println_P(Print& device, const PROGMEM char* s)
   device.println();
 }
 
+//Library Init
 IRrecv irrecv(5);
+IRsend irsend;
 SPI_VFD display(8, 9, 10);
 
+//Main functions
 void setup(void) {
     Serial.begin(9600);
     Serial.setTimeout(1000);
@@ -213,44 +220,79 @@ void resetScroll(void) {
 }
 
 void pollSerial() {
-    if(command == 0) {
-        if(Serial.available() >= 2) {
+    while(Serial.available()) {
+        //single character command
+        if(command == 0) {
             command = Serial.read();
-            payloadSize = Serial.read();
+            //If it isn't a valid command, the buffer may be garbage
+            if(!(command == CMD_SET_TITLE || command == CMD_SET_ARTIST || command == CMD_SET_MESSAGE || command == CMD_CLEAR || command == CMD_SEND_CODE)) {
+                command = 0;
+                Serial.flush();
+            }
+            //ready to recieve text
             switch(command) {
                 case CMD_SET_TITLE:
-                    titleLength = payloadSize;
+                    titleLength = 0;
                     break;
                 case CMD_SET_ARTIST:
-                    artistLength = payloadSize;
+                    artistLength = 0;
                     break;
                 case CMD_SET_MESSAGE:
-                    msgLength = payloadSize;
+                    msgLength = 0;
                     break;
-                default:
-                    command = 0;
-                    payloadSize = 0;
-                    Serial.flush();
             }
-        }
-    }
-    while(Serial.available()) {
-        switch(command) {
-            case CMD_SET_TITLE:
-                title[titleLength - payloadSize] = Serial.read();
-                break;
-            case CMD_SET_ARTIST:
-                artist[artistLength - payloadSize] = Serial.read();
-                break;
-            case CMD_SET_MESSAGE:
-                message[msgLength - payloadSize] = Serial.read();
-                break;
-        }
-        --payloadSize;
-        if(payloadSize == 0) {
-            resetScroll();
-            command = 0;
-            break;
+        //new-line terminated text
+        } else {
+            char c = Serial.read();
+            if(c == '\n') {
+                switch(command) {
+                    case CMD_SET_TITLE:
+                        break;
+                    case CMD_SET_ARTIST:
+                        break;
+                    case CMD_SET_MESSAGE:
+                        msgTimeout = MESSAGE_WAIT;
+                        break;
+                    case CMD_CLEAR:
+                        titleLength = 0;
+                        artistLength = 0;
+                        msgTimeout = 0;
+                        break;
+                    case CMD_SEND_CODE:
+                        for(int i=0; i <3; ++i) {
+                            if(rc5Toggle) {
+                                    irsend.sendRC5(0x00C, 12);
+                            } else {
+                                    irsend.sendRC5(0x80C, 12);
+                            }
+                            delay(100);
+                        }
+                        rc5Toggle = !rc5Toggle;
+                        irrecv.enableIRIn();
+                        break;
+                }
+                println_P(Serial, PSTR("Ok."));
+                command = 0;
+                resetScroll();
+            } else {
+                switch(command) {
+                    case CMD_SET_TITLE:
+                        if(titleLength < MAX_STRING_LENGTH) {
+                            title[titleLength++] = c;
+                        }
+                        break;
+                    case CMD_SET_ARTIST:
+                        if(artistLength < MAX_STRING_LENGTH) {
+                            artist[artistLength++] = c;
+                        }
+                        break;
+                    case CMD_SET_MESSAGE:
+                        if(msgLength < MAX_STRING_LENGTH) {
+                            message[msgLength++] = c;
+                        }
+                        break;
+                }
+            }
         }
     }
 }

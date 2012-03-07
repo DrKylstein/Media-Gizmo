@@ -59,12 +59,6 @@ class Remote_Input(object):
                 #print(command)
             print(command)
             
-CMD_SET_TITLE = 0x80
-CMD_SET_ARTIST = 0x81
-CMD_SET_COLOR = 0x82
-CMD_SET_MESSAGE = 0x83
-CMD_SET_MESSAGE_COLOR = 0x84
-
 class LCD(object):
     
     def __init__(self, serial):
@@ -75,26 +69,20 @@ class LCD(object):
         self.change_artist(artist)
         
     def change_title(self, title):
-        data = bytearray()
-        data.append(CMD_SET_TITLE)
-        data.append(len(title))
-        data.extend(unidecode(title))
-        self._serial.write(data);
+        self._serial.write('T{}\n'.format(unidecode(title)))
+        if self._serial.readline().strip() != 'Ok.':
+            raise RuntimeWarning
         
     def change_artist(self, artist):
-        data = bytearray()
-        data.append(CMD_SET_ARTIST)
-        data.append(len(artist))
-        data.extend(unidecode(artist))
-        self._serial.write(data);
+        self._serial.write('A{}\n'.format(unidecode(artist)))
+        if self._serial.readline().strip() != 'Ok.':
+            raise RuntimeWarning
         
     def display_message(self, text):
-        data = bytearray()
-        data.append(CMD_SET_MESSAGE)
-        data.append(len(text))
-        data.extend(text)
-        self._serial.write(data)
-        
+        self._serial.write('M{}\n'.format(unidecode(text)))
+        if self._serial.readline().strip() != 'Ok.':
+            raise RuntimeWarning
+
     
 class Media_Player(object):
     
