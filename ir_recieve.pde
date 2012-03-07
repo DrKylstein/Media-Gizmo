@@ -32,27 +32,38 @@
  */
 
 #include <avr/pgmspace.h>
-//include <LiquidCrystal.h>
 #include <SPI_VFD.h>
 #include <IRremote.h>
-#include <aJSON.h>
 
-/* This function places the current value of the heap and stack pointers in the
- * variables. You can call it from any place in your code and save the data for
- * outputting or displaying later. This allows you to check at different parts of
- * your program flow.
- * The stack pointer starts at the top of RAM and grows downwards. The heap pointer
- * starts just above the static variables etc. and grows upwards. SP should always
- * be larger than HP or you'll be in big trouble! The smaller the gap, the more
- * careful you need to be. Julian Gall 6-Feb-2009.
- */
-uint8_t * heapptr, * stackptr;
-void check_mem() {
-  stackptr = (uint8_t *)malloc(4);          // use stackptr temporarily
-  heapptr = stackptr;                     // save value of heap pointer
-  free(stackptr);      // free up the memory again (sets stackptr to 0)
-  stackptr =  (uint8_t *)(SP);           // save value of stack pointer
-}
+#define MAX_STRING_LENGTH 64
+#define COLUMNS 20
+
+#define CMD_SET_TITLE 0x80
+#define CMD_SET_ARTIST 0x81
+#define CMD_SET_MESSAGE 0x83
+
+#define SCROLL_TICK 200
+#define MESSAGE_WAIT 2000
+
+//IR
+decode_results results;
+uint8_t repeat = 0;
+//Command parsing
+uint8_t command = 0;
+uint8_t payloadSize = 0;
+//Display text
+uint8_t titleLength, artistLength, msgLength;
+char title[MAX_STRING_LENGTH];
+char artist[MAX_STRING_LENGTH];
+char message[MAX_STRING_LENGTH];
+//Scrolling and messages
+uint8_t scrollTop = 0;
+uint8_t scrollBottom = 0;
+unsigned long lastDisplayUpdate = 0;
+int16_t scrollTimeout = 0;
+int16_t msgTimeout = 0;
+uint8_t scrollState = 0;
+
 void print_P(Print& device, const PROGMEM char* s)
 {
   for (size_t i = 0; i < strlen_P(s); ++i)
@@ -60,82 +71,26 @@ void print_P(Print& device, const PROGMEM char* s)
     device.print(char(pgm_read_byte_near(s + i)));
   }
 }
-
 void println_P(Print& device, const PROGMEM char* s)
 {
   print_P(device, s);
   device.println();
 }
 
-#define PIN_LCD_R 9
-#define PIN_LCD_G 10
-#define PIN_LCD_B 11
-
-#define PIN_LCD_VO 6
-#define PIN_LCD_RS 12
-#define PIN_LCD_E 13
-
-#define PIN_LCD_D4 2
-#define PIN_LCD_D5 4
-#define PIN_LCD_D6 7
-#define PIN_LCD_D7 8
-
-#define MAX_STRING_LENGTH 64
-#define LCD_WIDTH 20
-
-#define CMD_SET_TITLE 0x80
-#define CMD_SET_ARTIST 0x81
-#define CMD_SET_COLOR 0x82
-#define CMD_SET_MESSAGE 0x83
-#define CMD_SET_MESSAGE_COLOR 0x84
-
-#define SCROLL_TICK 200
-#define MESSAGE_WAIT 2000
-
-uint8_t repeat = 0;
-
-uint8_t command = 0; //current LCD control command
-uint8_t payloadSize = 0;
-uint8_t titleLength, artistLength, msgLength;
-char title[MAX_STRING_LENGTH];
-char artist[MAX_STRING_LENGTH];
-char message[MAX_STRING_LENGTH];
-uint8_t main_color[3];
-uint8_t message_color[3];
-uint8_t scrollTop = 0;
-uint8_t scrollBottom = 0;
-unsigned long last_time = 0;
-int16_t scroll_timeout = 0;
-int16_t msgTimeout = 0;
-uint8_t scrollState = 0;
-
 IRrecv irrecv(5);
-decode_results results;
-// initialize the library with the numbers of the interface pins
-SPI_VFD lcd(8, 9, 10);//LiquidCrystal lcd(PIN_LCD_RS, PIN_LCD_E, PIN_LCD_D4, PIN_LCD_D5, PIN_LCD_D6, PIN_LCD_D7);
+SPI_VFD display(8, 9, 10);
 
 void setup(void) {
     Serial.begin(9600);
     Serial.setTimeout(1000);
-    // set up the LCD's number of columns and rows: 
-    lcd.begin(LCD_WIDTH, 2);
+    display.begin(COLUMNS, 2);
     irrecv.enableIRIn();
-    //~ analogWrite(PIN_LCD_R, 255);
-    //~ analogWrite(PIN_LCD_G, 255);
-    //~ analogWrite(PIN_LCD_B, 255);
-    //~ analogWrite(PIN_LCD_VO, 64);
     msgTimeout = 0;
-    check_mem();
-    if(stackptr > heapptr) {
-        Serial.println(stackptr - heapptr);
-    } else {
-        println_P(Serial, PSTR("Out of memory!"));
-    }
 }
 void loop(void) {
     pollForRemote();
     pollSerial();
-    updateLCD();
+    updateDisplay();
 }
 void pollForRemote(void) {
     if(irrecv.decode(&results)) {
@@ -252,7 +207,7 @@ void pollForRemote(void) {
 
 void resetScroll(void) {
     scrollTop = scrollBottom = scrollState = 0;
-    scroll_timeout = SCROLL_TICK;
+    scrollTimeout = SCROLL_TICK;
     rewriteTop();
     rewriteBottom();
 }
@@ -301,51 +256,51 @@ void pollSerial() {
 }
 
 void rewriteTop(void) {
-    lcd.setCursor(0,0);
-    for(int i=0; i<LCD_WIDTH; ++i) {
+    display.setCursor(0,0);
+    for(int i=0; i<COLUMNS; ++i) {
         if(scrollTop+i >= titleLength) {
-            lcd.write(0x20);
+            display.write(0x20);
         } else {
-            lcd.write(title[scrollTop+i]);
+            display.write(title[scrollTop+i]);
         }
     }
 }
 void rewriteBottom(void) {
-    lcd.setCursor(0,1);
+    display.setCursor(0,1);
     if(msgTimeout > 0) {
-        for(int i=0; i<LCD_WIDTH; ++i) {
+        for(int i=0; i<COLUMNS; ++i) {
             if(i >= msgLength) {
-                lcd.write(0x20);
+                display.write(0x20);
             } else {
-                lcd.write(message[i]);
+                display.write(message[i]);
             }
         }
     } else {
-        for(int i=0; i<LCD_WIDTH; ++i) {
+        for(int i=0; i<COLUMNS; ++i) {
             if(scrollBottom+i >= artistLength) {
-                lcd.write(0x20);
+                display.write(0x20);
             } else {
-                lcd.write(artist[scrollBottom+i]);
+                display.write(artist[scrollBottom+i]);
             }
         }
     }
 }
 
-void updateLCD(void) {
-    unsigned long time_elapsed = millis() - last_time;
-    last_time = millis();
+void updateDisplay(void) {
+    unsigned long time_elapsed = millis() - lastDisplayUpdate;
+    lastDisplayUpdate = millis();
     if(msgTimeout > 0) {
         msgTimeout -= time_elapsed;
         if(msgTimeout <= 0) {
             rewriteBottom();
         }
     } else {
-        scroll_timeout -= time_elapsed;
-        if(scroll_timeout <= 0) {
+        scrollTimeout -= time_elapsed;
+        if(scrollTimeout <= 0) {
             switch(scrollState) {
                 case 0:
                     //println_P(Serial, PSTR("top forward."));
-                    if(scrollTop >= titleLength - LCD_WIDTH) {
+                    if(scrollTop >= titleLength - COLUMNS) {
                         //println_P(Serial, PSTR("to 1."));
                         ++scrollState;
                     } else {
@@ -366,8 +321,8 @@ void updateLCD(void) {
                 case 2:
                     //println_P(Serial, PSTR("bottom forward."));
                     if(
-                        (msgTimeout > 0 && scrollBottom >= msgLength - LCD_WIDTH) ||
-                        (msgTimeout <= 0 && scrollBottom >= artistLength - LCD_WIDTH)
+                        (msgTimeout > 0 && scrollBottom >= msgLength - COLUMNS) ||
+                        (msgTimeout <= 0 && scrollBottom >= artistLength - COLUMNS)
                     ) {
                         ++scrollState;
                          //println_P(Serial, PSTR("to 3."));
@@ -387,7 +342,7 @@ void updateLCD(void) {
                     }
                     break;
             }
-            scroll_timeout = SCROLL_TICK;
+            scrollTimeout = SCROLL_TICK;
         }
     }
 }
