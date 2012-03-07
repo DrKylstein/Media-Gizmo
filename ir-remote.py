@@ -41,6 +41,9 @@ from unidecode import unidecode
 import sys
 #sys.stderr = sys.stdout = open('/home/kyle/ir-remote.log', mode='a+')
 
+class ArduinoException(Exception):
+    pass
+
 class Remote_Input(object):
     
     def __init__(self, tty):
@@ -68,20 +71,31 @@ class LCD(object):
         self.change_title(title)
         self.change_artist(artist)
         
+    #sometimes reports from the remote are read where command responses are expected, so checking is disabled.
     def change_title(self, title):
         self._serial.write('T{}\n'.format(unidecode(title)))
-        if self._serial.readline().strip() != 'Ok.':
-            raise RuntimeWarning
+        #~ response = self._serial.readline().strip()
+        #~ if response != 'Ok.':
+            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
         
     def change_artist(self, artist):
         self._serial.write('A{}\n'.format(unidecode(artist)))
-        if self._serial.readline().strip() != 'Ok.':
-            raise RuntimeWarning
+        #~ response = self._serial.readline().strip()
+        #~ if response != 'Ok.':
+            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
+            
+    def clear(self):
+        self._serial.write('C\n')
+        #~ response = self._serial.readline().strip()
+        #~ if response != 'Ok.':
+            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
+
         
     def display_message(self, text):
         self._serial.write('M{}\n'.format(unidecode(text)))
-        if self._serial.readline().strip() != 'Ok.':
-            raise RuntimeWarning
+        #~ response = self._serial.readline().strip()
+        #~ if response != 'Ok.':
+            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
 
     
 class Media_Player(object):
@@ -90,35 +104,37 @@ class Media_Player(object):
         self.playing = False
         self.artist = ''
         self.title = ''
-        self._handler = None
-        self._playback_handler = None
+        self._listener = None
         
     def poll(self):
-        if 'playing' in subprocess.check_output(['banshee', '--query-current-state', '--no-present']):
-            if self.playing is not True and self._playback_handler is not None:
-                self._playback_handler(True)
-            self.playing = True
-        elif 'pause' in subprocess.check_output(['banshee', '--query-current-state', '--no-present']):
-            if self.playing is not False and self._playback_handler is not None:
-                self._playback_handler(False)
-            self.playing = False
-        else:
-            if self.playing is not None and self._playback_handler is not None:
-                self._playback_handler(None)
-            self.playing = None
-            
+        changed = False
         artist = subprocess.check_output(['banshee', '--query-artist', '--no-present'])[8:].rstrip()
         title = subprocess.check_output(['banshee', '--query-title', '--no-present'])[7:].rstrip()
-        if (artist != self.artist or title != self.title) and self._handler is not None:
-            self._handler(title, artist)
+        if artist != self.artist or title != self.title:
+            changed = True
             self.title = title
             self.artist = artist
-        
-    def attach_track_change_listener(self, handler):
-        self._handler = handler
 
-    def attach_playback_listener(self, handler):
-        self._playback_handler = handler
+        if 'playing' in subprocess.check_output(['banshee', '--query-current-state', '--no-present']):
+            if self.playing is not True:
+                changed = True
+            self.playing = True
+        elif 'pause' in subprocess.check_output(['banshee', '--query-current-state', '--no-present']):
+            if self.playing is not False:
+                changed = True
+            self.playing = False
+        else:
+            if self.playing is not None:
+                changed = True
+            self.playing = None
+            
+        if changed  and self._listener is not None:
+            self._listener(self.playing, self.title, self.artist)
+            
+        return self.playing, self.title, self.artist
+        
+    def attach_listener(self, listener):
+        self._listener = listener
 
     def play(self):
         subprocess.call(['banshee', '--play', '--no-present'])
@@ -155,9 +171,15 @@ if __name__ == '__main__':
             remote = Remote_Input(serial_)
             lcd = LCD(serial_)
             media_player = Media_Player()
-            media_player.attach_track_change_listener(lcd.change_track)
 
-            #media_player.attach_playback_listener(play_pause)
+            def player_changed(state, title, artist):
+                if state is None:
+                    lcd.clear();
+                else:
+                    lcd.change_title(title)
+                    lcd.change_artist(artist)
+
+            media_player.attach_listener(player_changed)
 
             def play():
                 media_player.play()
