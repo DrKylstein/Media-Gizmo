@@ -67,6 +67,8 @@ int16_t scrollTimeout = 0;
 int16_t msgTimeout = 0;
 uint8_t scrollState = 0;
 
+boolean blank = false;
+
 //Utility Functions
 void print_P(Print& device, const PROGMEM char* s)
 {
@@ -329,6 +331,17 @@ void rewriteBottom(void) {
 }
 
 void updateDisplay(void) {
+    if(titleLength != 0 || artistLength != 0 || msgTimeout > 0) {
+        if(blank) {
+            display.display();
+            blank = false;
+        }
+    } else {
+        if(!blank) {
+            display.noDisplay();
+            blank = true;
+        }
+    }
     unsigned long time_elapsed = millis() - lastDisplayUpdate;
     lastDisplayUpdate = millis();
     if(msgTimeout > 0) {
