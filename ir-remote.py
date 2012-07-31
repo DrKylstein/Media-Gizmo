@@ -35,7 +35,7 @@ from __future__ import division
 import serial
 import subprocess
 import time
-import pygame.time
+from functools import partial
 from unidecode import unidecode
 
 import sys
@@ -161,7 +161,9 @@ class Media_Player(object):
         subprocess.call(['banshee', '--hide'])
         subprocess.call(['banshee', '--present'])
 
-
+def simulate_key(key):
+    subprocess.call(["xdotool", "key", key])
+    
 if __name__ == '__main__':
     while True:
         try:
@@ -173,7 +175,7 @@ if __name__ == '__main__':
             media_player = Media_Player()
 
             def player_changed(state, title, artist):
-                if state is None:
+                if not state:
                     lcd.clear();
                 else:
                     lcd.change_title(title)
@@ -195,6 +197,7 @@ if __name__ == '__main__':
                 lcd.display_message('[Previous]')
             def stop():
                 media_player.stop()
+                lcd.display_message('[Stop]')
             def display():
                 media_player.fullscreen()
                 lcd.display_message('[Fullscreen]')
@@ -206,7 +209,7 @@ if __name__ == '__main__':
                 lcd.display_message('[Show]')
             def power():
                 print(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
-            def yellow():
+            def show_time():
                 lcd.display_message(time.strftime('%I:%M %p, %a'))
                 
             remote.bind('play', play)
@@ -218,12 +221,18 @@ if __name__ == '__main__':
             remote.bind('options', options)
             remote.bind('menu', menu)
             remote.bind('power', power)
-            remote.bind('yellow', yellow)
+            remote.bind('yellow', show_time)
+            remote.bind('red', partial(simulate_key, "space"))
+            remote.bind('up', partial(simulate_key, "Up"))
+            remote.bind('down', partial(simulate_key, "Down"))
+            remote.bind('left', partial(simulate_key, "Tab"))
+            remote.bind('right', partial(simulate_key, "shift+Tab"))
+            remote.bind('enter', partial(simulate_key, "Return"))
+            remote.bind('exit', partial(simulate_key, "Escape"))
 
-            clock = pygame.time.Clock()
             time.sleep(1) #Give Arduino some time to setup.
             while True:
-                time_elapsed = clock.tick(15)
+                time.sleep(0.06)
                 media_player.poll()
                 remote.poll()
         except serial.SerialException:
