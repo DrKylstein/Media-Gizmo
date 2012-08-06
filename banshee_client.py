@@ -36,16 +36,18 @@ import subprocess
 import time
 from functools import partial
 from ir_recieve import LCD, Remote_Input
-from mpd_media_player import Media_Player
+from mediaplayer_banshee import Media_Player
 
+def simulate_key(key):
+    subprocess.call(["xdotool", "key", key])
+    
 if __name__ == '__main__':
-    #while True:
-        #try:
-    print(time.strftime('%Y-%m-%d %H:%M:%S'))
-
-    serial_ = serial.Serial(port='/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00', baudrate=9600, timeout=1)
-    remote = Remote_Input(serial_)
-    lcd = LCD(serial_)
+    arduino = serial.Serial()
+    arduino.port='/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
+    arduino.baudrate=9600
+    arduino.timeout=1
+    remote = Remote_Input(arduino)
+    lcd = LCD(arduino)
     media_player = Media_Player()
 
     def player_changed(state, title, artist):
@@ -72,17 +74,17 @@ if __name__ == '__main__':
     def stop():
         media_player.stop()
         lcd.display_message('[Stop]')
-    #~ def display():
-        #~ media_player.fullscreen()
-        #~ lcd.display_message('[Fullscreen]')
-    #~ def options():
-        #~ media_player.hide()
-        #~ lcd.display_message('[Hide]')
-    #~ def menu():
-        #~ media_player.show()
-        #~ lcd.display_message('[Show]')
-    #~ def power():
-        #~ print(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
+    def display():
+        media_player.fullscreen()
+        lcd.display_message('[Fullscreen]')
+    def options():
+        media_player.hide()
+        lcd.display_message('[Hide]')
+    def menu():
+        media_player.show()
+        lcd.display_message('[Show]')
+    def power():
+        print(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
     def show_time():
         lcd.display_message(time.strftime('%I:%M %p, %a'))
         
@@ -91,23 +93,29 @@ if __name__ == '__main__':
     remote.bind('next', next)
     remote.bind('previous', previous)
     remote.bind('stop', stop)
-    #remote.bind('display', display)
-    #remote.bind('options', options)
-    #remote.bind('menu', menu)
-    #~ remote.bind('power', power)
+    remote.bind('display', display)
+    remote.bind('options', options)
+    remote.bind('menu', menu)
+    remote.bind('power', power)
     remote.bind('yellow', show_time)
-    #~ remote.bind('red', partial(simulate_key, "space"))
-    #~ remote.bind('up', partial(simulate_key, "Up"))
-    #~ remote.bind('down', partial(simulate_key, "Down"))
-    #~ remote.bind('left', partial(simulate_key, "Tab"))
-    #~ remote.bind('right', partial(simulate_key, "shift+Tab"))
-    #~ remote.bind('enter', partial(simulate_key, "Return"))
-    #~ remote.bind('exit', partial(simulate_key, "Escape"))
-
-    time.sleep(1) #Give Arduino some time to setup.
+    remote.bind('red', partial(simulate_key, "space"))
+    remote.bind('up', partial(simulate_key, "Up"))
+    remote.bind('down', partial(simulate_key, "Down"))
+    remote.bind('left', partial(simulate_key, "Tab"))
+    remote.bind('right', partial(simulate_key, "shift+Tab"))
+    remote.bind('enter', partial(simulate_key, "Return"))
+    remote.bind('exit', partial(simulate_key, "Escape"))
+    
     while True:
-        time.sleep(0.06)
-        media_player.poll()
-        remote.poll()
-#        except serial.SerialException:
-#            time.sleep(5)
+        try:
+            if not arduino.isOpen():
+                arduino.open()
+                time.sleep(1)#Give Arduino some time to setup.
+            media_player.poll()
+            command = remote.poll()
+            if command is not None:
+                print(command)
+            time.sleep(0.06)
+        except serial.SerialException:
+            print("[{}] Encountered serial error, will wait and retry.".format(time.strftime('%Y-%m-%d %H:%M:%S')))
+            time.sleep(5)

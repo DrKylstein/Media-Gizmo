@@ -31,9 +31,6 @@
 #import serial
 from unidecode import unidecode
 
-class ArduinoException(Exception):
-    pass
-
 class Remote_Input(object):
     
     def __init__(self, tty):
@@ -45,44 +42,29 @@ class Remote_Input(object):
         
     def poll(self):
         command = self._serial.readline().strip()
-        if command:
+        if command != "" and command is not None:
             if command in self._binds:
                 self._binds[command]()
-            #else:
-                #print(command)
-            print(command)
-
+            return command
+        return None
+        
 class LCD(object):
     
-    def __init__(self, serial):
-        self._serial = serial
+    def __init__(self, tty):
+        self._serial = tty
     
     def change_track(self, title, artist):
         self.change_title(title)
         self.change_artist(artist)
         
-    #sometimes reports from the remote are read where command responses are expected, so checking is disabled.
     def change_title(self, title):
         self._serial.write('T{}\n'.format(unidecode(title)))
-        #~ response = self._serial.readline().strip()
-        #~ if response != 'Ok.':
-            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
         
     def change_artist(self, artist):
         self._serial.write('A{}\n'.format(unidecode(artist)))
-        #~ response = self._serial.readline().strip()
-        #~ if response != 'Ok.':
-            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
             
     def clear(self):
         self._serial.write('C\n')
-        #~ response = self._serial.readline().strip()
-        #~ if response != 'Ok.':
-            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)
-
         
     def display_message(self, text):
         self._serial.write('M{}\n'.format(unidecode(text)))
-        #~ response = self._serial.readline().strip()
-        #~ if response != 'Ok.':
-            #~ raise ArduinoException, 'Unexpected or no response "{}"'.format(response)

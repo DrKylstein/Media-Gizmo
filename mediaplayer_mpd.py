@@ -41,9 +41,14 @@ class Media_Player(object):
         
     def poll(self):
         changed = False
-        songinfo = self._client.currentsong()["title"].split(" - ")
-        artist = songinfo[0]
-        title = songinfo[1]
+        #ex: currentsong = {'id': '2', 'pos': '2', 'name': 'PopTron: Electro-Pop and Indie Dance Rock [SomaFM]', 'file': 'http://sfstream1.somafm.com:2200', 'title': 'CANT - Believe'}
+        if "title" in self._client.currentsong():
+            songinfo = self._client.currentsong()["title"].split(" - ")
+            artist = songinfo[0]
+            title = songinfo[1]
+        else:
+            artist = ""
+            title = ""
         if artist != self.artist or title != self.title:
             changed = True
             self.title = title
@@ -71,7 +76,7 @@ class Media_Player(object):
         self._listener = listener
 
     def play(self):
-        self._client.pause(0)
+        self._client.play()
         
     def pause(self):
         self._client.pause(1)
