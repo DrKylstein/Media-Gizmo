@@ -31,19 +31,23 @@
  # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import print_function
-import serial
 import subprocess
 import time
 from functools import partial
+#nonstandard
+import serial
+#local
 from ir_recieve import LCD, Remote_Input
 from mediaplayer_banshee import Media_Player
+
+ARDUINO_PORT = '/dev/ttyACM0'
 
 def simulate_key(key):
     subprocess.call(["xdotool", "key", key])
     
 if __name__ == '__main__':
     arduino = serial.Serial()
-    arduino.port='/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
+    arduino.port=ARDUINO_PORT
     arduino.baudrate=9600
     arduino.timeout=1
     remote = Remote_Input(arduino)
