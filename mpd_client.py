@@ -31,21 +31,28 @@
  # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import print_function
-import serial
 import time
+#nonstandard
+import serial
+#local modules
 from ir_recieve import LCD, Remote_Input
 from mediaplayer_mpd import Media_Player
+import weather
+
+ARDUINO_PORT = '/dev/ttyACM0'
+WEATHER_URL = "http://www.wunderground.com/auto/rss_full/NY/New_York.xml"
 
 if __name__ == '__main__':
     arduino = serial.Serial()
-    arduino.port='/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
+    arduino.port=ARDUINO_PORT
     arduino.baudrate=9600
     arduino.timeout=1
         
     remote = Remote_Input(arduino)
     lcd = LCD(arduino)
     media_player = Media_Player()
-
+    weather_ = weather.Weather(WEATHER_URL, 5)
+    
     def player_changed(state, title, artist):
         if not state:
             lcd.clear();
@@ -71,7 +78,9 @@ if __name__ == '__main__':
         media_player.stop()
         lcd.display_message('[Stop]')
     def show_time():
-        lcd.display_message(time.strftime('%I:%M %p, %a'))
+        lcd.display_message(''.format(time.strftime('%I:%M %p, %a')))
+    def show_weather():
+        lcd.display_message('{} {}'.format(weather_.current_conditions()["Temperature"], weather_.current_conditions()["Conditions"]))
         
     remote.bind('play', play)
     remote.bind('pause', pause)
@@ -79,6 +88,7 @@ if __name__ == '__main__':
     remote.bind('previous', previous)
     remote.bind('stop', stop)
     remote.bind('yellow', show_time)
+    remote.bind('red', show_weather)
     while True:
         try:
             if not arduino.isOpen():
@@ -88,6 +98,7 @@ if __name__ == '__main__':
             command = remote.poll()
             if command is not None:
                 print(command)
+            weather_.poll()
             time.sleep(0.06)
         except serial.SerialException:
             print("[{}] Encountered serial error, will wait and retry.".format(time.strftime('%Y-%m-%d %H:%M:%S')))

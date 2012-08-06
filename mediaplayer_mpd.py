@@ -17,7 +17,7 @@
  # this software without specific prior written permission.
  #
  # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ # 'AS IS' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
  # FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
  # HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
@@ -31,7 +31,7 @@ import mpd
 
 class Media_Player(object):
     
-    def __init__(self, host="localhost", port=6600):
+    def __init__(self, host='localhost', port=6600):
         self.playing = False
         self.artist = ''
         self.title = ''
@@ -42,23 +42,23 @@ class Media_Player(object):
     def poll(self):
         changed = False
         #ex: currentsong = {'id': '2', 'pos': '2', 'name': 'PopTron: Electro-Pop and Indie Dance Rock [SomaFM]', 'file': 'http://sfstream1.somafm.com:2200', 'title': 'CANT - Believe'}
-        if "title" in self._client.currentsong():
-            songinfo = self._client.currentsong()["title"].split(" - ")
+        artist = ''
+        title = ''
+        if 'title' in self._client.currentsong():
+            songinfo = self._client.currentsong()['title'].split(' - ')
             artist = songinfo[0]
             title = songinfo[1]
-        else:
-            artist = ""
-            title = ""
+            
         if artist != self.artist or title != self.title:
             changed = True
             self.title = title
             self.artist = artist
-        state = self._client.status()["state"]
-        if state == "play":
+        state = self._client.status()['state']
+        if state == 'play':
             if self.playing is not True:
                 changed = True
             self.playing = True
-        elif state == "pause":
+        elif state == 'pause':
             if self.playing is not False:
                 changed = True
             self.playing = False
