@@ -3,7 +3,7 @@ Arduino to interface with a media player and other functions on a Linux PC.
 
 The core files for the Arduino are:
 -ir_recieve.pde is the Arduino sketch.
--ir_recieve.py provides the interface to the Arduino (via PySerial)
+-ir_recieve.py provides the PC interface to the Arduino (via PySerial)
 
 Executable PC side files are:
 -banshee_client.py uses Banshee as the Media Player (through 
