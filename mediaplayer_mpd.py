@@ -44,8 +44,9 @@ class Media_Player(object):
         #ex: currentsong = {'id': '2', 'pos': '2', 'name': 'PopTron: Electro-Pop and Indie Dance Rock [SomaFM]', 'file': 'http://sfstream1.somafm.com:2200', 'title': 'CANT - Believe'}
         artist = ''
         title = ''
-        if 'title' in self._client.currentsong():
-            songinfo = self._client.currentsong()['title'].split(' - ')
+        current = self._client.currentsong()
+        if 'title' in current:
+            songinfo = current['title'].split(' - ')
             artist = songinfo[0]
             title = songinfo[1]
             

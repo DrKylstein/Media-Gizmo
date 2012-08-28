@@ -86,7 +86,7 @@ void println_P(Print& device, const PROGMEM char* s)
 //Library Init
 IRrecv irrecv(5);
 IRsend irsend;
-SPI_VFD display(8, 9, 10);
+SPI_VFD display(8, 10, 9);
 
 //Main functions
 void setup(void) {
@@ -104,109 +104,20 @@ void loop(void) {
 void pollForRemote(void) {
     if(irrecv.decode(&results)) {
         if(repeat == 0) {
-            if(results.decode_type == SONY) {
-                switch(results.value) {
-                    case 0x58B47:
-                        println_P(Serial, PSTR("play"));
-                        break;
-                     case 0x6AB47:
-                        println_P(Serial, PSTR("next"));
-                         break;
-                    case 0xEAB47:
-                        println_P(Serial, PSTR("previous"));
-                        break;
-                     case 0x98B47:
-                        println_P(Serial, PSTR("pause"));
-                        break;
-                     case 0x18B47:
-                        println_P(Serial, PSTR("stop"));
-                        break;
-                     case 0x38B47:
-                        println_P(Serial, PSTR("fast forward"));
-                        break;
-                     case 0xD8B47:
-                        println_P(Serial, PSTR("rewind"));
-                        break;
-                     case 0x42B47:
-                        println_P(Serial, PSTR("menu"));
-                        break;
-                     case 0xDCB47:
-                        println_P(Serial, PSTR("left"));
-                        break;
-                     case 0x3CB47:
-                        println_P(Serial, PSTR("right"));
-                        break;
-                     case 0x9CB47:
-                        println_P(Serial, PSTR("up"));
-                        break;
-                     case 0x5CB47:
-                        println_P(Serial, PSTR("down"));
-                        break;
-                     case 0xBCB47:
-                        println_P(Serial, PSTR("enter"));
-                        break;
-                     case 0xC2B47:
-                        println_P(Serial, PSTR("exit"));
-                        break;
-                     case 0xA8B47:
-                        println_P(Serial, PSTR("power"));
-                        break;
-                     case 0x54B47:
-                        println_P(Serial, PSTR("guide"));
-                        break;
-                     case 0x96B47:
-                        println_P(Serial, PSTR("yellow"));
-                        break;
-                     case 0x66B47:
-                        println_P(Serial, PSTR("blue"));
-                        break;
-                     case 0xE6B47:
-                        println_P(Serial, PSTR("red"));
-                        break;
-                     case 0x16B47:
-                        println_P(Serial, PSTR("green"));
-                        break;
-                     case 0xFCB47:
-                        println_P(Serial, PSTR("options"));
-                        break;
-                     case 0x34B47:
-                        println_P(Serial, PSTR("top menu"));
-                        break;
-                     case 0x94B47:
-                        println_P(Serial, PSTR("pop up/menu"));
-                        break;
-                     case 0x26B47:
-                        println_P(Serial, PSTR("audio"));
-                        break;
-                     case 0xC6B47:
-                        println_P(Serial, PSTR("subtitle"));
-                        break;
-                     case 0xA6B47:
-                        println_P(Serial, PSTR("angle"));
-                        break;
-                     case 0x82B47:
-                        println_P(Serial, PSTR("display"));
-                        break;
-                    default:
-                        Serial.print(results.value, HEX);
-                }
+            if (results.decode_type == NEC) {
+              Serial.print("NEC_");
+            } 
+            else if (results.decode_type == SONY) {
+                Serial.print("SONY_");
                 repeat = 3;
-            } else {
-                //report unrecognized code and continue
-                if (results.decode_type == NEC) {
-                  Serial.print("Decoded NEC: ");
-                } 
-                else if (results.decode_type == SONY) {
-                  Serial.print("Decoded SONY: ");
-                } 
-                else if (results.decode_type == RC5) {
-                  Serial.print("Decoded RC5: ");
-                } 
-                else if (results.decode_type == RC6) {
-                  Serial.print("Decoded RC6: ");
-                }
-                Serial.print(results.value, HEX);
+            } 
+            else if (results.decode_type == RC5) {
+              Serial.print("RC5_");
+            } 
+            else if (results.decode_type == RC6) {
+              Serial.print("RC6_");
             }
+            Serial.println(results.value, HEX);
         } else {
             --repeat;
         }
