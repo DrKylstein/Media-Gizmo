@@ -34,6 +34,7 @@ from __future__ import print_function
 import subprocess
 import time
 from functools import partial
+import logging
 #nonstandard
 import serial
 #local
@@ -46,6 +47,7 @@ def simulate_key(key):
     subprocess.call(["xdotool", "key", key])
     
 if __name__ == '__main__':
+    logging.basicConfig(filename='banshee_client.py.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     arduino = serial.Serial()
     arduino.port=ARDUINO_PORT
     arduino.baudrate=9600
@@ -201,8 +203,15 @@ if __name__ == '__main__':
             media_player.poll()
             command = remote.poll()
             if command is not None:
-                print(command)
+                logging.debug('Arduino says: "{}".'.format(command))
             time.sleep(0.06)
         except serial.SerialException:
-            print("[{}] Encountered serial error, will wait and retry.".format(time.strftime('%Y-%m-%d %H:%M:%S')))
+            logging.error('Encountered serial error, will wait and retry.')
             time.sleep(5)
+        except subprocess.CalledProcessError as e:
+            logging.error('"{}" encountered error: "{}"; will wait and retry.'.format(e.cmd, e.output))
+            time.sleep(5)
+        except OSError as e:
+            logging.error('Encountered an OS error, likely a serial error: "{}"; will wait and retry.'.format(e.strerror))
+            time.sleep(5)
+            
