@@ -61,16 +61,15 @@ if __name__ == '__main__':
     temperature = 0
     conditions = ''
     current_time = ''
-    today = 0
 
     def player_changed(state, title, artist, album):
         if not state:
             lcd.change_artist('--');
         else:
             if album == '':
-                lcd.change_artist(u'{} by {}'.format(title, artist))
+                lcd.change_artist(u'{} - {}'.format(title, artist))
             else:
-                lcd.change_artist(u'{} by {} on {}'.format(title, artist, album))
+                lcd.change_artist(u'{} - {} on {}'.format(title, artist, album))
 
     media_player.attach_listener(player_changed)
 
@@ -227,7 +226,22 @@ if __name__ == '__main__':
     remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'key', 'Escape']))
     remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'key', 'space'])) #red button
 
-    days = ['U', 'M', 'T', 'W', 'H', 'F', 'S']
+    condition_icons = [
+        ('clear','&sun;'), 
+        ('sun','&sun;'), 
+        ('overcast','&cloud;'), 
+        ('cloud','&cloud;'), 
+        ('rain','&rain;'), 
+        ('shower','&rain;'), 
+        ('storm','&storm;'), 
+        ('thunder','&storm;'), 
+        ]
+    def condition_to_icon(text):
+        for pair in condition_icons:
+            if text.lower().count(pair[0]):
+                return pair[1]
+        logging.warning('No icon for {}'.format(text))
+        return '?'
 
     while True:
         try:
@@ -241,19 +255,16 @@ if __name__ == '__main__':
             if temp_temperature != temperature:
                 data_changed = True
                 temperature = temp_temperature
-            if weather.current_conditions()['Conditions'] != conditions:
+            temp_condition = condition_to_icon(weather.current_conditions()['Conditions'])
+            if temp_condition  != conditions:
                 data_changed = True
-                conditions = weather.current_conditions()['Conditions']
-            temp_time = time.strftime('%I:%M%p').replace('PM', 'p').replace('AM', 'a')
+                conditions = temp_condition
+            temp_time = time.strftime('%a %d %I:%M%p')
             if temp_time  != current_time:
                 data_changed = True
                 current_time = temp_time
-            temp_today = int(time.strftime('%w'))
-            if temp_today  != today:
-                data_changed = True
-                today = temp_today
             if data_changed:
-                lcd.change_title('{}{} {} {}'.format(days[today], current_time, temperature, conditions))
+                lcd.change_title('{} {}&deg;F{}'.format(current_time, temperature, conditions))
             command = remote.poll()
             if command is not None:
                 logging.debug('Arduino says: "{}".'.format(command))

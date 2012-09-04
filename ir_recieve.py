@@ -50,21 +50,39 @@ class Remote_Input(object):
         
 class LCD(object):
     
+    _table = [
+        ('&deg;F',0x1B),
+        ('&deg;C',0x1A),
+        ('&deg;',0xDF),
+        ('&sun;',0x94),
+        ('&rain;',0xDE),
+        ('&cloud;',0x8E),
+        ('&storm;',0x8F),
+        ('&amp;',0x26),
+        ('~',0x8E)
+        ]
+    
     def __init__(self, tty):
         self._serial = tty
+    
+    def _translate_text(self, text):
+        text = unidecode(text).encode('ascii', errors='ignore')
+        for pair in self._table:
+            text = text.replace(pair[0], chr(pair[1]))
+        return text
     
     def change_track(self, title, artist):
         self.change_title(title)
         self.change_artist(artist)
         
     def change_title(self, title):
-        self._serial.write('T{}\n'.format(unidecode(title)))
+        self._serial.write('T{}\n'.format(self._translate_text(title)))
         
     def change_artist(self, artist):
-        self._serial.write('A{}\n'.format(unidecode(artist)))
+        self._serial.write('A{}\n'.format(self._translate_text(artist)))
             
     def clear(self):
         self._serial.write('C\n')
         
     def display_message(self, text):
-        self._serial.write('M{}\n'.format(unidecode(text)))
+        self._serial.write('M{}\n'.format(self._translate_text(text)))
