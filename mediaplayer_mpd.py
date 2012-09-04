@@ -35,6 +35,7 @@ class Media_Player(object):
         self.playing = False
         self.artist = ''
         self.title = ''
+        self.album = ''
         self._listener = None
         self._client = mpd.MPDClient()
         self._client.connect(host, port)
@@ -44,16 +45,20 @@ class Media_Player(object):
         #ex: currentsong = {'id': '2', 'pos': '2', 'name': 'PopTron: Electro-Pop and Indie Dance Rock [SomaFM]', 'file': 'http://sfstream1.somafm.com:2200', 'title': 'CANT - Believe'}
         artist = ''
         title = ''
+        album = ''
         current = self._client.currentsong()
         if 'title' in current:
             songinfo = current['title'].split(' - ')
             artist = songinfo[0]
             title = songinfo[1]
+        if 'name' in current:
+            album = current['name']
             
-        if artist != self.artist or title != self.title:
+        if artist != self.artist or title != self.title or album != self.album:
             changed = True
             self.title = title
             self.artist = artist
+            self.album = album
         state = self._client.status()['state']
         if state == 'play':
             if self.playing is not True:
@@ -69,7 +74,7 @@ class Media_Player(object):
             self.playing = None
             
         if changed  and self._listener is not None:
-            self._listener(self.playing, self.title, self.artist)
+            self._listener(self.playing, self.title, self.artist, self.album)
             
         return self.playing, self.title, self.artist
         

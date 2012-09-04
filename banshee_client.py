@@ -19,7 +19,7 @@
  # this software without specific prior written permission.
  #
  # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ # 'AS IS' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
  # FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
  # HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
@@ -40,28 +40,37 @@ import serial
 #local
 from ir_recieve import LCD, Remote_Input
 from mediaplayer_banshee import Media_Player
+from weather import Weather
 
 ARDUINO_PORT = '/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
-
-def simulate_key(key):
-    subprocess.call(["xdotool", "key", key])
+WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/FL/Bradenton.xml?units=english'
     
 if __name__ == '__main__':
-    logging.basicConfig(filename='banshee_client.py.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    #logging.basicConfig(filename='banshee_client.py.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     arduino = serial.Serial()
     arduino.port=ARDUINO_PORT
     arduino.baudrate=9600
     arduino.timeout=1
     remote = Remote_Input(arduino)
     lcd = LCD(arduino)
+    weather = Weather(WEATHER_URL, 10)
     media_player = Media_Player()
+    
+    mouse_mode = False
+    temperature = 0
+    conditions = ''
+    current_time = ''
+    today = 0
 
-    def player_changed(state, title, artist):
+    def player_changed(state, title, artist, album):
         if not state:
-            lcd.clear();
+            lcd.change_artist('--');
         else:
-            lcd.change_title(title)
-            lcd.change_artist(artist)
+            if album == '':
+                lcd.change_artist(u'{} by {}'.format(title, artist))
+            else:
+                lcd.change_artist(u'{} by {} on {}'.format(title, artist, album))
 
     media_player.attach_listener(player_changed)
 
@@ -92,88 +101,109 @@ if __name__ == '__main__':
     def power():
         print(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
     def show_time():
-        lcd.display_message(time.strftime('%I:%M %p, %a'))
+        lcd.display_message('[Ping!]')
+    def switch_mode():
+        global mouse_mode
+        if mouse_mode:
+            remote.bind('SONY_9CB47', partial(subprocess.call, ['xdotool', 'key', 'Up']))
+            remote.bind('SONY_5CB47', partial(subprocess.call, ['xdotool', 'key', 'Down']))
+            remote.bind('SONY_DCB47', partial(subprocess.call, ['xdotool', 'key', 'Tab'])) #left button
+            remote.bind('SONY_3CB47', partial(subprocess.call, ['xdotool', 'key', 'shift+Tab'])) #right button
+            remote.bind('SONY_BCB47', partial(subprocess.call, ['xdotool', 'key', 'Return']))
+            remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'key', 'Escape']))
+            remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'key', 'space'])) #red button
+            lcd.display_message('[Keyboard Mode]')
+        else:
+            remote.bind('SONY_9CB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '--', '0', '-100']))
+            remote.bind('SONY_5CB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '0', '100']))
+            remote.bind('SONY_DCB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '--', '-100', '0'])) #left button
+            remote.bind('SONY_3CB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '100', '0'])) #right button
+            remote.bind('SONY_BCB47', partial(subprocess.call, ['xdotool', 'click', '1']))
+            remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'click', '2']))
+            remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'click', '3']))
+            lcd.display_message('[Mouse Mode]')
+        mouse_mode = not mouse_mode
     '''       
                     case 0x58B47:
-                        println_P(Serial, PSTR("play"));
+                        println_P(Serial, PSTR('play'));
                         break;
                      case 0x6AB47:
-                        println_P(Serial, PSTR("next"));
+                        println_P(Serial, PSTR('next'));
                          break;
                     case 0xEAB47:
-                        println_P(Serial, PSTR("previous"));
+                        println_P(Serial, PSTR('previous'));
                         break;
                      case 0x98B47:
-                        println_P(Serial, PSTR("pause"));
+                        println_P(Serial, PSTR('pause'));
                         break;
                      case 0x18B47:
-                        println_P(Serial, PSTR("stop"));
+                        println_P(Serial, PSTR('stop'));
                         break;
                      case 0x38B47:
-                        println_P(Serial, PSTR("fast forward"));
+                        println_P(Serial, PSTR('fast forward'));
                         break;
                      case 0xD8B47:
-                        println_P(Serial, PSTR("rewind"));
+                        println_P(Serial, PSTR('rewind'));
                         break;
                      case 0x42B47:
-                        println_P(Serial, PSTR("menu"));
+                        println_P(Serial, PSTR('menu'));
                         break;
                      case 0xDCB47:
-                        println_P(Serial, PSTR("left"));
+                        println_P(Serial, PSTR('left'));
                         break;
                      case 0x3CB47:
-                        println_P(Serial, PSTR("right"));
+                        println_P(Serial, PSTR('right'));
                         break;
                      case 0x9CB47:
-                        println_P(Serial, PSTR("up"));
+                        println_P(Serial, PSTR('up'));
                         break;
                      case 0x5CB47:
-                        println_P(Serial, PSTR("down"));
+                        println_P(Serial, PSTR('down'));
                         break;
                      case 0xBCB47:
-                        println_P(Serial, PSTR("enter"));
+                        println_P(Serial, PSTR('enter'));
                         break;
                      case 0xC2B47:
-                        println_P(Serial, PSTR("exit"));
+                        println_P(Serial, PSTR('exit'));
                         break;
                      case 0xA8B47:
-                        println_P(Serial, PSTR("power"));
+                        println_P(Serial, PSTR('power'));
                         break;
                      case 0x54B47:
-                        println_P(Serial, PSTR("guide"));
+                        println_P(Serial, PSTR('guide'));
                         break;
                      case 0x96B47:
-                        println_P(Serial, PSTR("yellow"));
+                        println_P(Serial, PSTR('yellow'));
                         break;
                      case 0x66B47:
-                        println_P(Serial, PSTR("blue"));
+                        println_P(Serial, PSTR('blue'));
                         break;
                      case 0xE6B47:
-                        println_P(Serial, PSTR("red"));
+                        println_P(Serial, PSTR('red'));
                         break;
                      case 0x16B47:
-                        println_P(Serial, PSTR("green"));
+                        println_P(Serial, PSTR('green'));
                         break;
                      case 0xFCB47:
-                        println_P(Serial, PSTR("options"));
+                        println_P(Serial, PSTR('options'));
                         break;
                      case 0x34B47:
-                        println_P(Serial, PSTR("top menu"));
+                        println_P(Serial, PSTR('top menu'));
                         break;
                      case 0x94B47:
-                        println_P(Serial, PSTR("pop up/menu"));
+                        println_P(Serial, PSTR('pop up/menu'));
                         break;
                      case 0x26B47:
-                        println_P(Serial, PSTR("audio"));
+                        println_P(Serial, PSTR('audio'));
                         break;
                      case 0xC6B47:
-                        println_P(Serial, PSTR("subtitle"));
+                        println_P(Serial, PSTR('subtitle'));
                         break;
                      case 0xA6B47:
-                        println_P(Serial, PSTR("angle"));
+                        println_P(Serial, PSTR('angle'));
                         break;
                      case 0x82B47:
-                        println_P(Serial, PSTR("display"));
+                        println_P(Serial, PSTR('display'));
                         break;
     '''
         
@@ -187,20 +217,43 @@ if __name__ == '__main__':
     remote.bind('SONY_42B47', menu)
     remote.bind('SONY_A8B47', power)
     remote.bind('SONY_96B47', show_time) #yellow button
-    remote.bind('SONY_E6B47', partial(simulate_key, "space")) #red button
-    remote.bind('SONY_9CB47', partial(simulate_key, "Up"))
-    remote.bind('SONY_5CB47', partial(simulate_key, "Down"))
-    remote.bind('SONY_DCB47', partial(simulate_key, "Tab")) #left button
-    remote.bind('SONY_3CB47', partial(simulate_key, "shift+Tab")) #right button
-    remote.bind('SONY_BCB47', partial(simulate_key, "Return"))
-    remote.bind('SONY_C2B47', partial(simulate_key, "Escape"))
+    remote.bind('SONY_66B47', switch_mode) #yellow button
     
+    remote.bind('SONY_9CB47', partial(subprocess.call, ['xdotool', 'key', 'Up']))
+    remote.bind('SONY_5CB47', partial(subprocess.call, ['xdotool', 'key', 'Down']))
+    remote.bind('SONY_DCB47', partial(subprocess.call, ['xdotool', 'key', 'Tab'])) #left button
+    remote.bind('SONY_3CB47', partial(subprocess.call, ['xdotool', 'key', 'shift+Tab'])) #right button
+    remote.bind('SONY_BCB47', partial(subprocess.call, ['xdotool', 'key', 'Return']))
+    remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'key', 'Escape']))
+    remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'key', 'space'])) #red button
+
+    days = ['U', 'M', 'T', 'W', 'H', 'F', 'S']
+
     while True:
         try:
             if not arduino.isOpen():
                 arduino.open()
                 time.sleep(1)#Give Arduino some time to setup.
             media_player.poll()
+            weather.poll()
+            data_changed = False
+            temp_temperature = int(float(weather.current_conditions()['Temperature']))
+            if temp_temperature != temperature:
+                data_changed = True
+                temperature = temp_temperature
+            if weather.current_conditions()['Conditions'] != conditions:
+                data_changed = True
+                conditions = weather.current_conditions()['Conditions']
+            temp_time = time.strftime('%I:%M%p').replace('PM', 'p').replace('AM', 'a')
+            if temp_time  != current_time:
+                data_changed = True
+                current_time = temp_time
+            temp_today = int(time.strftime('%w'))
+            if temp_today  != today:
+                data_changed = True
+                today = temp_today
+            if data_changed:
+                lcd.change_title('{}{} {} {}'.format(days[today], current_time, temperature, conditions))
             command = remote.poll()
             if command is not None:
                 logging.debug('Arduino says: "{}".'.format(command))

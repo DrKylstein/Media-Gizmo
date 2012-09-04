@@ -45,7 +45,7 @@ class Weather(object):
         '''Forcibly update the data.'''
         rss = feedparser.parse(self._url)
         self._data = {
-            'current':dict(map(lambda a: a.split(': '), re.sub('<.+?>','', rss.entries[0].description).replace('&deg;', '').replace(' / ', '/').split(' | '))),
+            'current':dict(map(lambda a: a.split(': '), re.sub('<.+?>','', rss.entries[0].description).replace('&deg;F', '').replace('&deg;C', '').replace(' / ', '/').split(' | '))),
             'today':rss.entries[1].description,
             'tonight':rss.entries[1].description,
             'tomorrow':rss.entries[1].description         
