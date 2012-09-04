@@ -46,8 +46,8 @@ ARDUINO_PORT = '/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932
 WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/FL/Bradenton.xml?units=english'
     
 if __name__ == '__main__':
-    #logging.basicConfig(filename='banshee_client.py.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s')
-    logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(filename='banshee_client.py.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    #logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     arduino = serial.Serial()
     arduino.port=ARDUINO_PORT
     arduino.baudrate=9600
