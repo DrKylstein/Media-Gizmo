@@ -156,17 +156,26 @@ void pollSerial() {
                         scrollTop = 0;
                         scrollDirTop = 1;
                         rewriteTop();
+                        print_P(Serial, PSTR("Recieved top row: "));
+                        Serial.write((uint8_t*)title, titleLength);
+                        println_P(Serial, PSTR(""));
                         break;
                     case CMD_SET_ARTIST:
                         scrollBottom = 0;
                         scrollDirBottom = 1;
                         rewriteBottom();
+                        print_P(Serial, PSTR("Recieved bottom row: "));
+                        Serial.write((uint8_t*)artist, artistLength);
+                        println_P(Serial, PSTR(""));
                         break;
                     case CMD_SET_MESSAGE:
                         msgTimeout = MESSAGE_WAIT;
                         scrollBottom = 0;
                         scrollDirBottom = 1;
                         rewriteBottom();
+                        print_P(Serial, PSTR("Recieved user message: "));
+                        Serial.write((uint8_t*)message, msgLength);
+                        println_P(Serial, PSTR(""));
                         break;
                     case CMD_CLEAR:
                         titleLength = 0;
@@ -176,9 +185,9 @@ void pollSerial() {
                         scrollDirTop = 1;
                         scrollBottom = 0;
                         scrollDirBottom = 1;
+                        println_P(Serial, PSTR("Screen cleared."));
                         break;
                 }
-                println_P(Serial, PSTR("Ok."));
                 command = 0;
             } else {
                 switch(command) {

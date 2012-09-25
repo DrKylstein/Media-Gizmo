@@ -35,6 +35,7 @@ import subprocess
 import time
 from functools import partial
 import logging
+import os.path
 #nonstandard
 import serial
 #local
@@ -46,7 +47,7 @@ ARDUINO_PORT = '/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932
 WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/FL/Bradenton.xml?units=english'
     
 if __name__ == '__main__':
-    logging.basicConfig(filename='banshee_client.py.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(filename=os.path.expanduser('~/banshee_client.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     #logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     arduino = serial.Serial()
     arduino.port=ARDUINO_PORT
@@ -69,7 +70,7 @@ if __name__ == '__main__':
             if album == '':
                 lcd.change_artist(u'{} - {}'.format(title, artist))
             else:
-                lcd.change_artist(u'{} - {} on {}'.format(title, artist, album))
+                lcd.change_artist(u'{} by {} on {}'.format(title, artist, album))
 
     media_player.attach_listener(player_changed)
 
@@ -242,7 +243,13 @@ if __name__ == '__main__':
                 return pair[1]
         logging.warning('No icon for {}'.format(text))
         return '?'
-
+        
+    crashed = False
+    def recover():
+        crashed = True
+        arduino.close()
+        sleep(3)
+    logging.info('Started up.')
     while True:
         try:
             if not arduino.isOpen():
@@ -263,19 +270,22 @@ if __name__ == '__main__':
             if temp_time  != current_time:
                 data_changed = True
                 current_time = temp_time
-            if data_changed:
+            if data_changed or crashed:
                 lcd.change_title('{} {}&deg;F{}'.format(current_time, temperature, conditions))
+                crashed = False
             command = remote.poll()
             if command is not None:
                 logging.debug('Arduino says: "{}".'.format(command))
             time.sleep(0.06)
         except serial.SerialException:
             logging.error('Encountered serial error, will wait and retry.')
-            time.sleep(5)
+            recover()
         except subprocess.CalledProcessError as e:
             logging.error('"{}" encountered error: "{}"; will wait and retry.'.format(e.cmd, e.output))
-            time.sleep(5)
+            recover()
         except OSError as e:
             logging.error('Encountered an OS error, likely a serial error: "{}"; will wait and retry.'.format(e.strerror))
-            time.sleep(5)
-            
+            recover()
+        except:
+            logging.exception('Unexpected error; will wait and retry.')
+            recover()
