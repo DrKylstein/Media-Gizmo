@@ -194,13 +194,13 @@ class MediaGizmo(object):
         self._remote.bind(SONY_BD['enter'], partial(subprocess.call, ['xdotool', 'key', 'Return']))
         self._remote.bind(SONY_BD['exit'], partial(subprocess.call, ['xdotool', 'key', 'Escape']))
         self._remote.bind(SONY_BD['red'], partial(subprocess.call, ['xdotool', 'key', 'space']))
-        
-        logging.info('Started up.')
     
     def update(self):
         if not self._arduino.isOpen():
             self._arduino.open()
             time.sleep(1)#Give Arduino some time to setup.
+            self._last_info_time = 0
+            self._update_display()
         self._media_player.poll()
         self._weather_clock.poll()
         if self._media_player.playing and self._last_info_time > 0 and time.time() - self._last_info_time > TIME_PERIOD:
@@ -209,7 +209,6 @@ class MediaGizmo(object):
         command = self._remote.poll()
         if command is not None:
             logging.debug('Arduino says: "{}".'.format(command))
-        time.sleep(0.06)
 
 
 if __name__ == '__main__':
@@ -220,6 +219,7 @@ if __name__ == '__main__':
     except:
         logging.exception('Error while starting up, cannot continue.')
         exit()
+    logging.info('Started up.')
     while True:
         try:
             gizmo.update()
@@ -235,3 +235,4 @@ if __name__ == '__main__':
         except:
             logging.exception('Unexpected error; will wait and retry.')
             gizmo.recover()
+        time.sleep(0.06)
