@@ -45,251 +45,193 @@ from weather import Weather
 
 ARDUINO_PORT = '/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
 WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/FL/Bradenton.xml?units=english'
+TIME_PERIOD = 5
+TIME_INTERVAL = 30
+SONY_BD = {
+   'play':0x58B47,
+   'next':0x6AB47,
+   'previous':0xEAB47,
+   'pause':0x98B47,
+   'stop':0x18B47,
+   'fast forward':0x38B47,
+   'rewind':0xD8B47,
+   'menu':0x42B47,
+   'left':0xDCB47,
+   'right':0x3CB47,
+   'up':0x9CB47,
+   'down':0x5CB47,
+   'enter':0xBCB47,
+   'exit':0xC2B47,
+   'power':0xA8B47,
+   'guide':0x54B47,
+   'yellow':0x96B47,
+   'blue':0x66B47,
+   'red':0xE6B47,
+   'green':0x16B47,
+   'options':0xFCB47,
+   'top menu':0x34B47,
+   'pop up/menu':0x94B47,
+   'audio':0x26B47,
+   'subtitle':0xC6B47,
+   'angle':0xA6B47,
+   'display':0x82B47
+    }
+    #~ CONDITION_ICONS = [
+        #~ ('clear','&sun;'), 
+        #~ ('sun','&sun;'), 
+        #~ ('overcast','&cloud;'), 
+        #~ ('cloud','&cloud;'), 
+        #~ ('rain','&rain;'), 
+        #~ ('shower','&rain;'), 
+        #~ ('storm','&storm;'), 
+        #~ ('thunder','&storm;'), 
+        #~ ]
+#~ def condition_to_icon(text):
+    #~ for pair in condition_icons:
+        #~ if text.lower().count(pair[0]):
+            #~ return pair[1]
+    #~ logging.warning('No icon for {}'.format(text))
+    #~ return '?'
+
+class WeatherClock(object):
     
-if __name__ == '__main__':
-    logging.basicConfig(filename=os.path.expanduser('~/banshee_client.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
-    #logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
-    try:
-        arduino = serial.Serial()
-        arduino.port=ARDUINO_PORT
-        arduino.baudrate=9600
-        arduino.timeout=1
-        remote = Remote_Input(arduino)
-        lcd = LCD(arduino)
-        weather = Weather(WEATHER_URL, 10)
-        media_player = Media_Player()
+    any_handler = None
+    interval = 60
+    
+    def __init__(self, url):
+        self._weather = Weather(WEATHER_URL, 10)
+        self._weather.refresh()
+        self.time = time.time()
+        self._prev_time = time.time()
+        self.temperature = int(float(self._weather.current_conditions()['Temperature']))
+        self._prev_temperature = int(float(self._weather.current_conditions()['Temperature']))
+        self.conditions = self._weather.current_conditions()['Conditions']
+        self._prev_conditions = self._weather.current_conditions()['Conditions']
+
+    def poll(self):
+        self._weather.poll()
+        self.time = time.time()
+        self.temperature = int(float(self._weather.current_conditions()['Temperature']))
+        self.conditions = self._weather.current_conditions()['Conditions']
+        if self.time - self._prev_time > self.interval or self.temperature != self._prev_temperature or self.conditions != self._prev_conditions:
+            if self.handler is not None:
+                self.handler(self.time, self.temperature, self.conditions)
+            self._prev_time = self.time
+            self._prev_conditions = self.conditions
+            self._prev_temperature = self.temperature
+    
+class MediaGizmo(object):
+    
+    def _update_display(self):
+        if self._media_player.playing and self._last_info_time > 0:
+            self._lcd.change_title(self._media_player.title)
+
+            self._lcd.change_artist(self._media_player.artist)
+
+            #~ if self._media_player.album:
+                #~ self._lcd.change_artist(u'{} [{}]'.format(self._media_player.artist, self._media_player.album))
+            #~ else:
+                #~ self._lcd.change_artist(self._media_player.artist)
+        else:
+            self._lcd.change_title(time.strftime('%a %d %I:%M%p', time.localtime(self._weather_clock.time)))
+            self._lcd.change_artist('{}&deg;F {}'.format(self._weather_clock.temperature, self._weather_clock.conditions))
+            self._last_info_time = time.time()
+    
+    def _player_changed(self, state, title, artist, album):
+        self._update_display()
+        #~ if state:
+            #~ self._lcd.change_title(title)
+            #~ if album:
+                #~ self._lcd.change_artist(u'{} [{}]'.format(artist, album))
+            #~ else:
+                #~ self._lcd.change_artist(artist)
+        #~ else:
+            #~ self._info_changed(self._weather_clock.time, self._weather_clock.temperature, self._weather_clock.conditions)
+    
+    def _info_changed(self, current_time, temperature, conditions):
+        self._update_display()
+        #~ self._lcd.change_title(time.strftime('%a %d %I:%M%p', time.localtime(current_time)))
+        #~ self._lcd.change_artist('{}&deg;F {}'.format(temperature, conditions))
+        #~ self._last_info_time = time.time()
+
+    def _power(self):
+        logging.info(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
+
+    def recover(self):
+        self._arduino.close()
+        time.sleep(3)
+
+    def __init__(self):
+        self._arduino = serial.Serial()
+        self._arduino.port=ARDUINO_PORT
+        self._arduino.baudrate=9600
+        self._arduino.timeout=1
+        self._remote = Remote_Input(self._arduino)
+        self._lcd = LCD(self._arduino)
+        self._weather_clock = WeatherClock(WEATHER_URL)
+        self._weather_clock.interval = TIME_INTERVAL
+        self._media_player = Media_Player()
+        self._last_info_time = 0
+
+        self._media_player.attach_listener(self._player_changed)
+        self._weather_clock.handler = self._info_changed
+                                        
+        self._remote.bind(SONY_BD['play'], self._media_player.play)
+        self._remote.bind(SONY_BD['pause'], self._media_player.pause)
+        self._remote.bind(SONY_BD['next'], self._media_player.next_track)
+        self._remote.bind(SONY_BD['previous'], self._media_player.previous_track)
+        self._remote.bind(SONY_BD['stop'], self._media_player.stop)
+        self._remote.bind(SONY_BD['display'], self._media_player.fullscreen)
+        self._remote.bind(SONY_BD['options'], self._media_player.hide)
+        self._remote.bind(SONY_BD['menu'], self._media_player.show)
+        self._remote.bind(SONY_BD['power'], self._power)
+        self._remote.bind(SONY_BD['blue'], partial(self._lcd.display_message, '[Ping!]'))
         
-        mouse_mode = False
-        temperature = 0
-        conditions = ''
-        current_time = ''
-
-        def player_changed(state, title, artist, album):
-            if not state:
-                lcd.change_artist('--');
-            else:
-                if album == '':
-                    lcd.change_artist(u'{} - {}'.format(title, artist))
-                else:
-                    lcd.change_artist(u'{} by {} on {}'.format(title, artist, album))
-
-        media_player.attach_listener(player_changed)
-
-        def play():
-            media_player.play()
-            lcd.display_message('[Play]')
-        def pause():
-            media_player.pause()
-            lcd.display_message('[Pause]')
-        def next():
-            media_player.next_track()
-            lcd.display_message('[Next]')
-        def previous():
-            media_player.previous_track()
-            lcd.display_message('[Previous]')
-        def stop():
-            media_player.stop()
-            lcd.display_message('[Stop]')
-        def display():
-            media_player.fullscreen()
-            lcd.display_message('[Fullscreen]')
-        def options():
-            media_player.hide()
-            lcd.display_message('[Hide]')
-        def menu():
-            media_player.show()
-            lcd.display_message('[Show]')
-        def power():
-            print(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
-        def show_time():
-            lcd.display_message('[Ping!]')
-        def switch_mode():
-            global mouse_mode
-            if mouse_mode:
-                remote.bind('SONY_9CB47', partial(subprocess.call, ['xdotool', 'key', 'Up']))
-                remote.bind('SONY_5CB47', partial(subprocess.call, ['xdotool', 'key', 'Down']))
-                remote.bind('SONY_DCB47', partial(subprocess.call, ['xdotool', 'key', 'Tab'])) #left button
-                remote.bind('SONY_3CB47', partial(subprocess.call, ['xdotool', 'key', 'shift+Tab'])) #right button
-                remote.bind('SONY_BCB47', partial(subprocess.call, ['xdotool', 'key', 'Return']))
-                remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'key', 'Escape']))
-                remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'key', 'space'])) #red button
-                lcd.display_message('[Keyboard Mode]')
-            else:
-                remote.bind('SONY_9CB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '--', '0', '-100']))
-                remote.bind('SONY_5CB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '0', '100']))
-                remote.bind('SONY_DCB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '--', '-100', '0'])) #left button
-                remote.bind('SONY_3CB47', partial(subprocess.call, ['xdotool', 'mousemove_relative', '100', '0'])) #right button
-                remote.bind('SONY_BCB47', partial(subprocess.call, ['xdotool', 'click', '1']))
-                remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'click', '2']))
-                remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'click', '3']))
-                lcd.display_message('[Mouse Mode]')
-            mouse_mode = not mouse_mode
-        '''       
-                        case 0x58B47:
-                            println_P(Serial, PSTR('play'));
-                            break;
-                         case 0x6AB47:
-                            println_P(Serial, PSTR('next'));
-                             break;
-                        case 0xEAB47:
-                            println_P(Serial, PSTR('previous'));
-                            break;
-                         case 0x98B47:
-                            println_P(Serial, PSTR('pause'));
-                            break;
-                         case 0x18B47:
-                            println_P(Serial, PSTR('stop'));
-                            break;
-                         case 0x38B47:
-                            println_P(Serial, PSTR('fast forward'));
-                            break;
-                         case 0xD8B47:
-                            println_P(Serial, PSTR('rewind'));
-                            break;
-                         case 0x42B47:
-                            println_P(Serial, PSTR('menu'));
-                            break;
-                         case 0xDCB47:
-                            println_P(Serial, PSTR('left'));
-                            break;
-                         case 0x3CB47:
-                            println_P(Serial, PSTR('right'));
-                            break;
-                         case 0x9CB47:
-                            println_P(Serial, PSTR('up'));
-                            break;
-                         case 0x5CB47:
-                            println_P(Serial, PSTR('down'));
-                            break;
-                         case 0xBCB47:
-                            println_P(Serial, PSTR('enter'));
-                            break;
-                         case 0xC2B47:
-                            println_P(Serial, PSTR('exit'));
-                            break;
-                         case 0xA8B47:
-                            println_P(Serial, PSTR('power'));
-                            break;
-                         case 0x54B47:
-                            println_P(Serial, PSTR('guide'));
-                            break;
-                         case 0x96B47:
-                            println_P(Serial, PSTR('yellow'));
-                            break;
-                         case 0x66B47:
-                            println_P(Serial, PSTR('blue'));
-                            break;
-                         case 0xE6B47:
-                            println_P(Serial, PSTR('red'));
-                            break;
-                         case 0x16B47:
-                            println_P(Serial, PSTR('green'));
-                            break;
-                         case 0xFCB47:
-                            println_P(Serial, PSTR('options'));
-                            break;
-                         case 0x34B47:
-                            println_P(Serial, PSTR('top menu'));
-                            break;
-                         case 0x94B47:
-                            println_P(Serial, PSTR('pop up/menu'));
-                            break;
-                         case 0x26B47:
-                            println_P(Serial, PSTR('audio'));
-                            break;
-                         case 0xC6B47:
-                            println_P(Serial, PSTR('subtitle'));
-                            break;
-                         case 0xA6B47:
-                            println_P(Serial, PSTR('angle'));
-                            break;
-                         case 0x82B47:
-                            println_P(Serial, PSTR('display'));
-                            break;
-        '''
-            
-        remote.bind('SONY_58B47', play)
-        remote.bind('SONY_98B47', pause)
-        remote.bind('SONY_6AB47', next)
-        remote.bind('SONY_EAB47', previous)
-        remote.bind('SONY_18B47', stop)
-        remote.bind('SONY_82B47', display)
-        remote.bind('SONY_FCB47', options)
-        remote.bind('SONY_42B47', menu)
-        remote.bind('SONY_A8B47', power)
-        remote.bind('SONY_96B47', show_time) #yellow button
-        remote.bind('SONY_66B47', switch_mode) #yellow button
+        self._remote.bind(SONY_BD['up'], partial(subprocess.call, ['xdotool', 'key', 'Up']))
+        self._remote.bind(SONY_BD['down'], partial(subprocess.call, ['xdotool', 'key', 'Down']))
+        self._remote.bind(SONY_BD['left'], partial(subprocess.call, ['xdotool', 'key', 'Tab']))
+        self._remote.bind(SONY_BD['right'], partial(subprocess.call, ['xdotool', 'key', 'shift+Tab']))
+        self._remote.bind(SONY_BD['enter'], partial(subprocess.call, ['xdotool', 'key', 'Return']))
+        self._remote.bind(SONY_BD['exit'], partial(subprocess.call, ['xdotool', 'key', 'Escape']))
+        self._remote.bind(SONY_BD['red'], partial(subprocess.call, ['xdotool', 'key', 'space']))
         
-        remote.bind('SONY_9CB47', partial(subprocess.call, ['xdotool', 'key', 'Up']))
-        remote.bind('SONY_5CB47', partial(subprocess.call, ['xdotool', 'key', 'Down']))
-        remote.bind('SONY_DCB47', partial(subprocess.call, ['xdotool', 'key', 'Tab'])) #left button
-        remote.bind('SONY_3CB47', partial(subprocess.call, ['xdotool', 'key', 'shift+Tab'])) #right button
-        remote.bind('SONY_BCB47', partial(subprocess.call, ['xdotool', 'key', 'Return']))
-        remote.bind('SONY_C2B47', partial(subprocess.call, ['xdotool', 'key', 'Escape']))
-        remote.bind('SONY_E6B47', partial(subprocess.call, ['xdotool', 'key', 'space'])) #red button
-
-        condition_icons = [
-            ('clear','&sun;'), 
-            ('sun','&sun;'), 
-            ('overcast','&cloud;'), 
-            ('cloud','&cloud;'), 
-            ('rain','&rain;'), 
-            ('shower','&rain;'), 
-            ('storm','&storm;'), 
-            ('thunder','&storm;'), 
-            ]
-        def condition_to_icon(text):
-            for pair in condition_icons:
-                if text.lower().count(pair[0]):
-                    return pair[1]
-            logging.warning('No icon for {}'.format(text))
-            return '?'
-            
-        crashed = False
-        def recover():
-            crashed = True
-            arduino.close()
-            sleep(3)
         logging.info('Started up.')
+    
+    def update(self):
+        if not self._arduino.isOpen():
+            self._arduino.open()
+            time.sleep(1)#Give Arduino some time to setup.
+        self._media_player.poll()
+        self._weather_clock.poll()
+        if self._media_player.playing and self._last_info_time > 0 and time.time() - self._last_info_time > TIME_PERIOD:
+            self._update_display()
+            self._last_info_time = 0
+        command = self._remote.poll()
+        if command is not None:
+            logging.debug('Arduino says: "{}".'.format(command))
+        time.sleep(0.06)
+
+
+if __name__ == '__main__':
+    #logging.basicConfig(filename=os.path.expanduser('~/banshee_client.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    try:
+        gizmo = MediaGizmo()
     except:
         logging.exception('Error while starting up, cannot continue.')
         exit()
     while True:
         try:
-            if not arduino.isOpen():
-                arduino.open()
-                time.sleep(1)#Give Arduino some time to setup.
-            media_player.poll()
-            weather.poll()
-            data_changed = False
-            temp_temperature = int(float(weather.current_conditions()['Temperature']))
-            if temp_temperature != temperature:
-                data_changed = True
-                temperature = temp_temperature
-            temp_condition = condition_to_icon(weather.current_conditions()['Conditions'])
-            if temp_condition  != conditions:
-                data_changed = True
-                conditions = temp_condition
-            temp_time = time.strftime('%a %d %I:%M%p')
-            if temp_time  != current_time:
-                data_changed = True
-                current_time = temp_time
-            if data_changed or crashed:
-                lcd.change_title('{} {}&deg;F{}'.format(current_time, temperature, conditions))
-                crashed = False
-            command = remote.poll()
-            if command is not None:
-                logging.debug('Arduino says: "{}".'.format(command))
-            time.sleep(0.06)
+            gizmo.update()
         except serial.SerialException:
             logging.error('Encountered serial error, will wait and retry.')
-            recover()
+            gizmo.recover()
         except subprocess.CalledProcessError as e:
             logging.error('"{}" encountered error: "{}"; will wait and retry.'.format(e.cmd, e.output))
-            recover()
+            gizmo.recover()
         except OSError as e:
             logging.error('Encountered an OS error, likely a serial error: "{}"; will wait and retry.'.format(e.strerror))
-            recover()
+            gizmo.recover()
         except:
             logging.exception('Unexpected error; will wait and retry.')
-            recover()
+            gizmo.recover()
