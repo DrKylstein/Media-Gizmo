@@ -47,6 +47,7 @@ ARDUINO_PORT = '/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932
 WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/FL/Bradenton.xml?units=english'
 TIME_PERIOD = 5
 TIME_INTERVAL = 30
+UPDATE_INTERVAL = 0.06
 SONY_BD = {
    'play':0x58B47,
    'next':0x6AB47,
@@ -212,8 +213,8 @@ class MediaGizmo(object):
 
 
 if __name__ == '__main__':
-    #logging.basicConfig(filename=os.path.expanduser('~/banshee_client.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
-    logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(filename=os.path.expanduser('~/banshee_client.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    #logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     try:
         gizmo = MediaGizmo()
     except:
@@ -235,4 +236,4 @@ if __name__ == '__main__':
         except:
             logging.exception('Unexpected error; will wait and retry.')
             gizmo.recover()
-        time.sleep(0.06)
+        time.sleep(UPDATE_INTERVAL)
