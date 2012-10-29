@@ -49,33 +49,33 @@ TIME_PERIOD = 5
 TIME_INTERVAL = 30
 UPDATE_INTERVAL = 0.06
 SONY_BD = {
-   'play':0x58B47,
-   'next':0x6AB47,
-   'previous':0xEAB47,
-   'pause':0x98B47,
-   'stop':0x18B47,
-   'fast forward':0x38B47,
-   'rewind':0xD8B47,
-   'menu':0x42B47,
-   'left':0xDCB47,
-   'right':0x3CB47,
-   'up':0x9CB47,
-   'down':0x5CB47,
-   'enter':0xBCB47,
-   'exit':0xC2B47,
-   'power':0xA8B47,
-   'guide':0x54B47,
-   'yellow':0x96B47,
-   'blue':0x66B47,
-   'red':0xE6B47,
-   'green':0x16B47,
-   'options':0xFCB47,
-   'top menu':0x34B47,
-   'pop up/menu':0x94B47,
-   'audio':0x26B47,
-   'subtitle':0xC6B47,
-   'angle':0xA6B47,
-   'display':0x82B47
+   'play':'SONY_58B47',
+   'next':'SONY_6AB47',
+   'previous':'SONY_EAB47',
+   'pause':'SONY_98B47',
+   'stop':'SONY_18B47',
+   'fast forward':'SONY_38B47',
+   'rewind':'SONY_D8B47',
+   'menu':'SONY_42B47',
+   'left':'SONY_DCB47',
+   'right':'SONY_3CB47',
+   'up':'SONY_9CB47',
+   'down':'SONY_5CB47',
+   'enter':'SONY_BCB47',
+   'exit':'SONY_C2B47',
+   'power':'SONY_A8B47',
+   'guide':'SONY_54B47',
+   'yellow':'SONY_96B47',
+   'blue':'SONY_66B47',
+   'red':'SONY_E6B47',
+   'green':'SONY_16B47',
+   'options':'SONY_FCB47',
+   'top menu':'SONY_34B47',
+   'pop up/menu':'SONY_94B47',
+   'audio':'SONY_26B47',
+   'subtitle':'SONY_C6B47',
+   'angle':'SONY_A6B47',
+   'display':'SONY_82B47'
     }
     #~ CONDITION_ICONS = [
         #~ ('clear','&sun;'), 
@@ -101,13 +101,13 @@ class WeatherClock(object):
     
     def __init__(self, url):
         self._weather = Weather(WEATHER_URL, 10)
-        self._weather.refresh()
+        #self._weather.refresh()
         self.time = time.time()
         self._prev_time = time.time()
-        self.temperature = int(float(self._weather.current_conditions()['Temperature']))
-        self._prev_temperature = int(float(self._weather.current_conditions()['Temperature']))
-        self.conditions = self._weather.current_conditions()['Conditions']
-        self._prev_conditions = self._weather.current_conditions()['Conditions']
+        self.temperature = 0#int(float(self._weather.current_conditions()['Temperature']))
+        self._prev_temperature = 0#int(float(self._weather.current_conditions()['Temperature']))
+        self.conditions = ''#self._weather.current_conditions()['Conditions']
+        self._prev_conditions = ''#self._weather.current_conditions()['Conditions']
 
     def poll(self):
         self._weather.poll()
@@ -203,7 +203,10 @@ class MediaGizmo(object):
             self._last_info_time = 0
             self._update_display()
         self._media_player.poll()
-        self._weather_clock.poll()
+        try:
+            self._weather_clock.poll()
+        except:
+            logging.exception("Error getting weather/time data, possibly malformed rss.")
         if self._media_player.playing and self._last_info_time > 0 and time.time() - self._last_info_time > TIME_PERIOD:
             self._update_display()
             self._last_info_time = 0
