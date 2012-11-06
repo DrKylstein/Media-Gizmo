@@ -33,16 +33,16 @@ class Media_Player(object):
     
     def __init__(self):
         self.playing = False
-        self.artist = ''
-        self.title = ''
-        self.album = ''
+        self.artist = u''
+        self.title = u''
+        self.album = u''
         self._listener = None
         
     def poll(self):
         changed = False
-        artist = subprocess.check_output(['banshee', '--query-artist', '--no-present'])[8:].rstrip()
-        title = subprocess.check_output(['banshee', '--query-title', '--no-present'])[7:].rstrip()
-        album = subprocess.check_output(['banshee', '--query-album', '--no-present'])[7:].rstrip()
+        artist = unicode(subprocess.check_output(['banshee', '--query-artist', '--no-present'])[8:].rstrip(), 'utf_8')
+        title = unicode(subprocess.check_output(['banshee', '--query-title', '--no-present'])[7:].rstrip(), 'utf_8')
+        album = unicode(subprocess.check_output(['banshee', '--query-album', '--no-present'])[7:].rstrip(), 'utf_8')
         if artist != self.artist or title != self.title or album != self.album:
             changed = True
             self.title = title
@@ -63,7 +63,7 @@ class Media_Player(object):
             self.playing = None
             
         if changed  and self._listener is not None:
-            self._listener(self.playing, unicode(self.title, 'utf_8'), unicode(self.artist, 'utf_8'), unicode(self.album, 'utf_8'))
+            self._listener(self.playing, self.title, self.artist, self.album)
             
         return self.playing, self.title, self.artist
         
