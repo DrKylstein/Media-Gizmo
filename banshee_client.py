@@ -36,6 +36,7 @@ import time
 from functools import partial
 import logging
 import os.path
+from sys import argv
 #nonstandard
 import serial
 #local
@@ -43,8 +44,8 @@ from ir_recieve import LCD, Remote_Input
 from mediaplayer_banshee import Media_Player
 from weather import Weather
 
-ARDUINO_PORT = '/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
-WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/FL/Bradenton.xml?units=english'
+ARDUINO_PORT = argv[1] #'/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
+WEATHER_URL = 'http://rss.wunderground.com/auto/rss_full/{}/{}.xml?units=english'.format(argv[3], argv[2])
 TIME_PERIOD = 5
 TIME_INTERVAL = 30
 UPDATE_INTERVAL = 0.06
