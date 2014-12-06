@@ -34,17 +34,16 @@ from __future__ import print_function
 import subprocess
 import logging
 import os.path
-from sys import argv
 from functools import partial
 import time
+import argparse
 #nonstandard
 import serial
 #local
 from remote import Remote_Input
 import mediaplayer_banshee as banshee
 
-ARDUINO_PORT = argv[1] #'/dev/serial/by-id/usb-Arduino__www.arduino.cc__Arduino_Uno_64932343938351F03281-if00'
-SONY_BD = {
+REMOTE_CODES = {
    'play':'SONY_58B47',
    'next':'SONY_6AB47',
    'previous':'SONY_EAB47',
@@ -72,72 +71,79 @@ SONY_BD = {
    'subtitle':'SONY_C6B47',
    'angle':'SONY_A6B47',
    'display':'SONY_82B47'
-    }
-    
-class MediaGizmo(object):
-    def _power(self):
-        logging.info(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
-
-    def recover(self):
-        self._arduino.close()
-        time.sleep(3)
-
-    def __init__(self, player_ns):
-        self._arduino = serial.Serial()
-        self._arduino.port=ARDUINO_PORT
-        self._arduino.baudrate=9600
-        #self._arduino.timeout=1
-        self._remote = Remote_Input(self._arduino)
-        self._media_player = player_ns.Control()
-                                        
-        self._remote.bind(SONY_BD['play'], self._media_player.play)
-        self._remote.bind(SONY_BD['pause'], self._media_player.pause)
-        self._remote.bind(SONY_BD['next'], self._media_player.next_track)
-        self._remote.bind(SONY_BD['previous'], self._media_player.previous_track)
-        self._remote.bind(SONY_BD['stop'], self._media_player.stop)
-        self._remote.bind(SONY_BD['display'], self._media_player.fullscreen)
-        self._remote.bind(SONY_BD['options'], self._media_player.hide)
-        self._remote.bind(SONY_BD['menu'], self._media_player.show)
-        self._remote.bind(SONY_BD['power'], self._power)
-        
-        self._remote.bind(SONY_BD['up'], partial(subprocess.call, ['xdotool', 'key', 'Up']))
-        self._remote.bind(SONY_BD['down'], partial(subprocess.call, ['xdotool', 'key', 'Down']))
-        self._remote.bind(SONY_BD['left'], partial(subprocess.call, ['xdotool', 'key', 'Tab']))
-        self._remote.bind(SONY_BD['right'], partial(subprocess.call, ['xdotool', 'key', 'shift+Tab']))
-        self._remote.bind(SONY_BD['enter'], partial(subprocess.call, ['xdotool', 'key', 'Return']))
-        self._remote.bind(SONY_BD['exit'], partial(subprocess.call, ['xdotool', 'key', 'Escape']))
-        self._remote.bind(SONY_BD['red'], partial(subprocess.call, ['xdotool', 'key', 'space']))
-    
-    def update(self):
-        if not self._arduino.isOpen():
-            self._arduino.open()
-            time.sleep(1)#Give Arduino some time to setup.
-        command = self._remote.poll()
-        if command is not None:
-            logging.debug('Arduino says: "{}".'.format(command))
-
+}
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=
+        'Control Banshee and other applications with a remote via Arduino-powered reciever.')
+    parser.add_argument('--port', default='/dev/ttyACM0', help='Serial port that Arduino is attached to')
+    args = parser.parse_args()
+
     logging.basicConfig(filename=os.path.expanduser('~/banshee_control.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    
+    arduino = None
+    remote = None
+    media_player = None
+
+    def recover():
+        arduino.close()
+        time.sleep(3)
+        
+    def power():
+        logging.info(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
+    
     try:
-        gizmo = MediaGizmo(banshee)
+        arduino = serial.Serial()
+        arduino.port=args.port
+        arduino.baudrate=9600
+        remote = Remote_Input(arduino)
+        media_player = banshee.Control()
+                                        
+        remote.bind(REMOTE_CODES['play'], media_player.play)
+        remote.bind(REMOTE_CODES['pause'], media_player.pause)
+        remote.bind(REMOTE_CODES['next'], media_player.next_track)
+        remote.bind(REMOTE_CODES['previous'], media_player.previous_track)
+        remote.bind(REMOTE_CODES['stop'], media_player.stop)
+        remote.bind(REMOTE_CODES['display'], media_player.fullscreen)
+        remote.bind(REMOTE_CODES['options'], media_player.hide)
+        remote.bind(REMOTE_CODES['menu'], media_player.show)
+        remote.bind(REMOTE_CODES['power'], power)
+        
+        remote.bind(REMOTE_CODES['up'], partial(subprocess.call, ['xdotool', 'key', 'Up']))
+        remote.bind(REMOTE_CODES['down'], partial(subprocess.call, ['xdotool', 'key', 'Down']))
+        remote.bind(REMOTE_CODES['left'], partial(subprocess.call, ['xdotool', 'key', 'Tab']))
+        remote.bind(REMOTE_CODES['right'], partial(subprocess.call, ['xdotool', 'key', 'shift+Tab']))
+        remote.bind(REMOTE_CODES['enter'], partial(subprocess.call, ['xdotool', 'key', 'Return']))
+        remote.bind(REMOTE_CODES['exit'], partial(subprocess.call, ['xdotool', 'key', 'Escape']))
+        remote.bind(REMOTE_CODES['red'], partial(subprocess.call, ['xdotool', 'key', 'space']))
+        
     except:
         logging.exception('Error while starting up, cannot continue.')
         exit()
+        
+        
     logging.info('Started up.')
+    
+    
     while True:
         try:
-            gizmo.update()
+            if not arduino.isOpen():
+                arduino.open()
+            time.sleep(1)#Give Arduino some time to setup.
+            
+            command = remote.poll()
+            if command is not None:
+                logging.debug('Arduino says: "{}".'.format(command))
+
         except serial.SerialException:
             logging.error('Encountered serial error, will wait and retry.')
-            gizmo.recover()
+            recover()
         except subprocess.CalledProcessError as e:
             logging.error('"{}" encountered error: "{}"; will wait and retry.'.format(e.cmd, e.output))
-            gizmo.recover()
+            recover()
         except OSError as e:
             logging.error('Encountered an OS error, likely a serial error: "{}"; will wait and retry.'.format(e.strerror))
-            gizmo.recover()
+            recover()
         except:
             logging.exception('Unexpected error; will wait and retry.')
-            gizmo.recover()
-        #time.sleep(UPDATE_INTERVAL)
+            recover()
