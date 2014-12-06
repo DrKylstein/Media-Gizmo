@@ -39,11 +39,9 @@
 
 #define CMD_SET_TITLE 'T'
 #define CMD_SET_ARTIST 'A'
-#define CMD_SET_MESSAGE 'M'
 #define CMD_CLEAR 'C'
 
 #define SCROLL_TICK 200
-#define MESSAGE_WAIT 2000
 //Global Variables
 //IR
 decode_results results;
@@ -52,16 +50,14 @@ uint8_t repeat = 0;
 uint8_t command = 0;
 uint8_t payloadSize = 0;
 //Display text
-uint8_t titleLength, artistLength, msgLength;
+uint8_t titleLength, artistLength;
 char title[MAX_STRING_LENGTH];
 char artist[MAX_STRING_LENGTH];
-char message[COLUMNS];
 //Scrolling and messages
 uint8_t scrollTop = 0;
 uint8_t scrollBottom = 0;
 unsigned long lastDisplayUpdate = 0;
 int16_t scrollTimeout = 0;
-int16_t msgTimeout = 0;
 int8_t scrollDirTop = 1;
 int8_t scrollDirBottom = 1;
 uint8_t rowToScroll = 0;
@@ -78,7 +74,6 @@ void setup(void) {
     Serial.setTimeout(1000);
     display.begin(COLUMNS, 2);
     irrecv.enableIRIn();
-    msgTimeout = 0;
 }
 void loop(void) {
     pollForRemote();
@@ -116,7 +111,7 @@ void pollSerial() {
         if(command == 0) {
             command = Serial.read();
             //If it isn't a valid command, the buffer may be garbage
-            if(!(command == CMD_SET_TITLE || command == CMD_SET_ARTIST || command == CMD_SET_MESSAGE || command == CMD_CLEAR)) {
+            if(!(command == CMD_SET_TITLE || command == CMD_SET_ARTIST || command == CMD_CLEAR)) {
                 command = 0;
                 Serial.flush();
             }
@@ -127,9 +122,6 @@ void pollSerial() {
                     break;
                 case CMD_SET_ARTIST:
                     artistLength = 0;
-                    break;
-                case CMD_SET_MESSAGE:
-                    msgLength = 0;
                     break;
             }
         //new-line terminated text
@@ -153,19 +145,9 @@ void pollSerial() {
                         Serial.write((uint8_t*)artist, artistLength);
                         Serial.println();
                         break;
-                    case CMD_SET_MESSAGE:
-                        msgTimeout = MESSAGE_WAIT;
-                        scrollBottom = 0;
-                        scrollDirBottom = 1;
-                        rewriteBottom();
-                        Serial.print("Recieved user message: ");
-                        Serial.write((uint8_t*)message, msgLength);
-                        Serial.println();
-                        break;
                     case CMD_CLEAR:
                         titleLength = 0;
                         artistLength = 0;
-                        msgTimeout = 0;
                         scrollTop = 0;
                         scrollDirTop = 1;
                         scrollBottom = 0;
@@ -186,11 +168,6 @@ void pollSerial() {
                             artist[artistLength++] = c;
                         }
                         break;
-                    case CMD_SET_MESSAGE:
-                        if(msgLength < COLUMNS) {
-                            message[msgLength++] = c;
-                        }
-                        break;
                 }
             }
         }
@@ -209,27 +186,17 @@ void rewriteTop(void) {
 }
 void rewriteBottom(void) {
     display.setCursor(0,1);
-    if(msgTimeout > 0) {
-        for(int i=0; i<COLUMNS; ++i) {
-            if(i >= msgLength) {
-                display.write(0x20);
-            } else {
-                display.write(message[i]);
-            }
-        }
-    } else {
-        for(int i=0; i<COLUMNS; ++i) {
-            if(scrollBottom+i >= artistLength) {
-                display.write(0x20);
-            } else {
-                display.write(artist[scrollBottom+i]);
-            }
+    for(int i=0; i<COLUMNS; ++i) {
+        if(scrollBottom+i >= artistLength) {
+            display.write(0x20);
+        } else {
+            display.write(artist[scrollBottom+i]);
         }
     }
 }
 
 void updateDisplay(void) {
-    if(titleLength != 0 || artistLength != 0 || msgTimeout > 0) {
+    if(titleLength != 0 || artistLength != 0) {
         if(blank) {
             display.display();
             blank = false;
@@ -242,9 +209,6 @@ void updateDisplay(void) {
     }
     unsigned long time_elapsed = millis() - lastDisplayUpdate;
     lastDisplayUpdate = millis();
-    if(msgTimeout > 0) {
-        msgTimeout -= time_elapsed;
-    }
     scrollTimeout -= time_elapsed;
     if(scrollTimeout <= 0) {
         scrollTimeout = SCROLL_TICK;
