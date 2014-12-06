@@ -78,22 +78,6 @@ SONY_BD = {
    'angle':'SONY_A6B47',
    'display':'SONY_82B47'
     }
-    #~ CONDITION_ICONS = [
-        #~ ('clear','&sun;'), 
-        #~ ('sun','&sun;'), 
-        #~ ('overcast','&cloud;'), 
-        #~ ('cloud','&cloud;'), 
-        #~ ('rain','&rain;'), 
-        #~ ('shower','&rain;'), 
-        #~ ('storm','&storm;'), 
-        #~ ('thunder','&storm;'), 
-        #~ ]
-#~ def condition_to_icon(text):
-    #~ for pair in condition_icons:
-        #~ if text.lower().count(pair[0]):
-            #~ return pair[1]
-    #~ logging.warning('No icon for {}'.format(text))
-    #~ return '?'
 
 class WeatherClock(object):
     
@@ -105,10 +89,10 @@ class WeatherClock(object):
         #self._weather.refresh()
         self.time = time.time()
         self._prev_time = time.time()
-        self.temperature = 0#int(float(self._weather.current_conditions()['Temperature']))
-        self._prev_temperature = 0#int(float(self._weather.current_conditions()['Temperature']))
-        self.conditions = ''#self._weather.current_conditions()['Conditions']
-        self._prev_conditions = ''#self._weather.current_conditions()['Conditions']
+        self.temperature = 0
+        self._prev_temperature = 0
+        self.conditions = ''
+        self._prev_conditions = ''
 
     def poll(self):
         self._weather.poll()
@@ -141,20 +125,9 @@ class MediaGizmo(object):
     
     def _player_changed(self, state, title, artist, album):
         self._update_display()
-        #~ if state:
-            #~ self._lcd.change_title(title)
-            #~ if album:
-                #~ self._lcd.change_artist(u'{} [{}]'.format(artist, album))
-            #~ else:
-                #~ self._lcd.change_artist(artist)
-        #~ else:
-            #~ self._info_changed(self._weather_clock.time, self._weather_clock.temperature, self._weather_clock.conditions)
     
     def _info_changed(self, current_time, temperature, conditions):
         self._update_display()
-        #~ self._lcd.change_title(time.strftime('%a %d %I:%M%p', time.localtime(current_time)))
-        #~ self._lcd.change_artist('{}&deg;F {}'.format(temperature, conditions))
-        #~ self._last_info_time = time.time()
 
     def _power(self):
         logging.info(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
@@ -218,7 +191,6 @@ class MediaGizmo(object):
 
 if __name__ == '__main__':
     logging.basicConfig(filename=os.path.expanduser('~/banshee_client.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
-    #logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     try:
         gizmo = MediaGizmo()
     except:
