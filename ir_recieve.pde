@@ -247,6 +247,7 @@ void updateDisplay(void) {
     }
     scrollTimeout -= time_elapsed;
     if(scrollTimeout <= 0) {
+        scrollTimeout = SCROLL_TICK;
         if(rowToScroll == 0) {
             if(titleLength > COLUMNS) {
                 scrollTop += scrollDirTop;
@@ -256,6 +257,7 @@ void updateDisplay(void) {
                 if(scrollTop == 0) {
                     rowToScroll = 1;
                 }
+                scrollTimeout = SCROLL_TICK*8;
             }
         } else {
             if(artistLength > COLUMNS) {
@@ -266,10 +268,10 @@ void updateDisplay(void) {
                 if(scrollBottom == 0) {
                     rowToScroll = 0;
                 }
-            }
+                scrollTimeout = SCROLL_TICK*8;
+           }
         }
         rewriteTop();
         rewriteBottom();
-        scrollTimeout = SCROLL_TICK;
     }
 }
