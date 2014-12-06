@@ -31,7 +31,6 @@
  *
  */
 
-#include <avr/pgmspace.h>
 #include <SPI_VFD.h>
 #include <IRremote.h>
 
@@ -68,20 +67,6 @@ int8_t scrollDirBottom = 1;
 uint8_t rowToScroll = 0;
 
 boolean blank = false;
-
-//Utility Functions
-void print_P(Print& device, const PROGMEM char* s)
-{
-  for (size_t i = 0; i < strlen_P(s); ++i)
-  {
-    device.print(char(pgm_read_byte_near(s + i)));
-  }
-}
-void println_P(Print& device, const PROGMEM char* s)
-{
-  print_P(device, s);
-  device.println();
-}
 
 //Library Init
 IRrecv irrecv(5);
@@ -156,26 +141,26 @@ void pollSerial() {
                         scrollTop = 0;
                         scrollDirTop = 1;
                         rewriteTop();
-                        print_P(Serial, PSTR("Recieved top row: "));
+                        Serial.print("Recieved top row: ");
                         Serial.write((uint8_t*)title, titleLength);
-                        println_P(Serial, PSTR(""));
+                        Serial.println();
                         break;
                     case CMD_SET_ARTIST:
                         scrollBottom = 0;
                         scrollDirBottom = 1;
                         rewriteBottom();
-                        print_P(Serial, PSTR("Recieved bottom row: "));
+                        Serial.print("Recieved bottom row: ");
                         Serial.write((uint8_t*)artist, artistLength);
-                        println_P(Serial, PSTR(""));
+                        Serial.println();
                         break;
                     case CMD_SET_MESSAGE:
                         msgTimeout = MESSAGE_WAIT;
                         scrollBottom = 0;
                         scrollDirBottom = 1;
                         rewriteBottom();
-                        print_P(Serial, PSTR("Recieved user message: "));
+                        Serial.print("Recieved user message: ");
                         Serial.write((uint8_t*)message, msgLength);
-                        println_P(Serial, PSTR(""));
+                        Serial.println();
                         break;
                     case CMD_CLEAR:
                         titleLength = 0;
@@ -185,7 +170,7 @@ void pollSerial() {
                         scrollDirTop = 1;
                         scrollBottom = 0;
                         scrollDirBottom = 1;
-                        println_P(Serial, PSTR("Screen cleared."));
+                        Serial.print("Screen cleared.");
                         break;
                 }
                 command = 0;
