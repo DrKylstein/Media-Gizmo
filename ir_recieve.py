@@ -1,4 +1,4 @@
- # Copyright (c) 2012 Kyle Delaney
+ # Copyright (c) 2014 Kyle Delaney
  # All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -83,6 +83,4 @@ class LCD(object):
             
     def clear(self):
         self._serial.write('C\n')
-        
-    def display_message(self, text):
-        self._serial.write('M{}\n'.format(self._translate_text(text)))
+ 

@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
- # Copyright (c) 2012 Kyle Delaney
+ # Copyright (c) 2014 Kyle Delaney
  # All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -86,7 +86,6 @@ class WeatherClock(object):
     
     def __init__(self, url):
         self._weather = Weather(WEATHER_URL, 10)
-        #self._weather.refresh()
         self.time = time.time()
         self._prev_time = time.time()
         self.temperature = 0
@@ -107,27 +106,15 @@ class WeatherClock(object):
             self._prev_temperature = self.temperature
     
 class MediaGizmo(object):
-    
-    def _update_display(self):
-        if self._media_player.playing and self._last_info_time > 0:
-            self._lcd.change_title(self._media_player.title)
-
-            self._lcd.change_artist(self._media_player.artist)
-
-            #~ if self._media_player.album:
-                #~ self._lcd.change_artist(u'{} [{}]'.format(self._media_player.artist, self._media_player.album))
-            #~ else:
-                #~ self._lcd.change_artist(self._media_player.artist)
-        else:
-            self._lcd.change_title(time.strftime('%a %d %I:%M%p', time.localtime(self._weather_clock.time)))
-            self._lcd.change_artist('{}&deg;F {}'.format(self._weather_clock.temperature, self._weather_clock.conditions))
-            self._last_info_time = time.time()
-    
+        
     def _player_changed(self, state, title, artist, album):
-        self._update_display()
+        if self._media_player.playing:
+            self._lcd.change_title('{} - {}'.format(title,artist))
+        else:
+            self._lcd.change_title('Idle')
     
     def _info_changed(self, current_time, temperature, conditions):
-        self._update_display()
+        self._lcd.change_artist('{} {}&deg;F {}'.format(time.strftime('%I:%M%p %a %d', time.localtime(current_time)), temperature, conditions))
 
     def _power(self):
         logging.info(subprocess.check_output(['dbus-send', '--print-reply', '--system', '--dest=org.freedesktop.UPower', '/org/freedesktop/UPower','org.freedesktop.UPower.Suspend']))
@@ -146,7 +133,6 @@ class MediaGizmo(object):
         self._weather_clock = WeatherClock(WEATHER_URL)
         self._weather_clock.interval = TIME_INTERVAL
         self._media_player = Media_Player()
-        self._last_info_time = 0
 
         self._media_player.attach_listener(self._player_changed)
         self._weather_clock.handler = self._info_changed
@@ -160,7 +146,6 @@ class MediaGizmo(object):
         self._remote.bind(SONY_BD['options'], self._media_player.hide)
         self._remote.bind(SONY_BD['menu'], self._media_player.show)
         self._remote.bind(SONY_BD['power'], self._power)
-        self._remote.bind(SONY_BD['blue'], partial(self._lcd.display_message, '[Ping!]'))
         
         self._remote.bind(SONY_BD['up'], partial(subprocess.call, ['xdotool', 'key', 'Up']))
         self._remote.bind(SONY_BD['down'], partial(subprocess.call, ['xdotool', 'key', 'Down']))
@@ -174,16 +159,11 @@ class MediaGizmo(object):
         if not self._arduino.isOpen():
             self._arduino.open()
             time.sleep(1)#Give Arduino some time to setup.
-            self._last_info_time = 0
-            self._update_display()
         self._media_player.poll()
         try:
             self._weather_clock.poll()
         except:
             logging.exception("Error getting weather/time data, possibly malformed rss.")
-        if self._media_player.playing and self._last_info_time > 0 and time.time() - self._last_info_time > TIME_PERIOD:
-            self._update_display()
-            self._last_info_time = 0
         command = self._remote.poll()
         if command is not None:
             logging.debug('Arduino says: "{}".'.format(command))
