@@ -133,17 +133,21 @@ void pollSerial() {
                         scrollTop = 0;
                         scrollDirTop = 1;
                         rewriteTop();
+                        #ifdef DEBUG_DISPLAY
                         Serial.print("Recieved top row: ");
                         Serial.write((uint8_t*)title, titleLength);
                         Serial.println();
+                        #endif
                         break;
                     case CMD_SET_ARTIST:
                         scrollBottom = 0;
                         scrollDirBottom = 1;
                         rewriteBottom();
+                        #ifdef DEBUG_DISPLAY
                         Serial.print("Recieved bottom row: ");
                         Serial.write((uint8_t*)artist, artistLength);
                         Serial.println();
+                        #endif
                         break;
                     case CMD_CLEAR:
                         titleLength = 0;
@@ -152,7 +156,9 @@ void pollSerial() {
                         scrollDirTop = 1;
                         scrollBottom = 0;
                         scrollDirBottom = 1;
+                        #ifdef DEBUG_DISPLAY
                         Serial.print("Screen cleared.");
+                        #endif
                         break;
                 }
                 command = 0;
