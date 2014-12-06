@@ -28,26 +28,8 @@
  # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-#import serial
 from unidecode import unidecode
 
-class Remote_Input(object):
-    
-    def __init__(self, tty):
-        self._binds = {}
-        self._serial = tty
-        
-    def bind(self, command, handler):
-        self._binds[command] = handler
-        
-    def poll(self):
-        command = self._serial.readline().strip()
-        if command != "" and command is not None:
-            if command in self._binds:
-                self._binds[command]()
-            return command
-        return None
-        
 class LCD(object):
     
     _table = [

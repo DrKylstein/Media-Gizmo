@@ -29,7 +29,33 @@
  # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import subprocess
 
-class Media_Player(object):
+class Control(object):
+    def play(self):
+        subprocess.call(['banshee', '--play', '--no-present'])
+        
+    def pause(self):
+        subprocess.call(['banshee', '--pause', '--no-present'])
+        
+    def stop(self):
+        subprocess.call(['banshee', '--stop', '--no-present'])
+        
+    def next_track(self):
+        subprocess.call(['banshee', '--next', '--no-present'])
+        
+    def previous_track(self):
+        subprocess.call(['banshee', '--previous', '--no-present'])
+        
+    def fullscreen(self):
+        subprocess.call(['banshee', '--fullscreen'])
+        
+    def hide(self):
+        subprocess.call(['banshee', '--hide'])
+        
+    def show(self):
+        subprocess.call(['banshee', '--hide'])
+        subprocess.call(['banshee', '--present'])
+
+class Status(object):
     
     def __init__(self):
         self.playing = False
@@ -69,28 +95,3 @@ class Media_Player(object):
         
     def attach_listener(self, listener):
         self._listener = listener
-
-    def play(self):
-        subprocess.call(['banshee', '--play', '--no-present'])
-        
-    def pause(self):
-        subprocess.call(['banshee', '--pause', '--no-present'])
-        
-    def stop(self):
-        subprocess.call(['banshee', '--stop', '--no-present'])
-        
-    def next_track(self):
-        subprocess.call(['banshee', '--next', '--no-present'])
-        
-    def previous_track(self):
-        subprocess.call(['banshee', '--previous', '--no-present'])
-        
-    def fullscreen(self):
-        subprocess.call(['banshee', '--fullscreen'])
-        
-    def hide(self):
-        subprocess.call(['banshee', '--hide'])
-        
-    def show(self):
-        subprocess.call(['banshee', '--hide'])
-        subprocess.call(['banshee', '--present'])

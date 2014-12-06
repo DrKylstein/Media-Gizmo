@@ -29,7 +29,41 @@
  # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import mpd
 
-class Media_Player(object):
+class Control(object):
+    def __init__(self, host='localhost', port=6600):
+        self.playing = False
+        self.artist = ''
+        self.title = ''
+        self.album = ''
+        self._listener = None
+        self._client = mpd.MPDClient()
+        self._client.connect(host, port)
+        
+    def play(self):
+        self._client.play()
+        
+    def pause(self):
+        self._client.pause(1)
+        
+    def stop(self):
+        self._client.stop()
+        
+    def next_track(self):
+        self._client.next()
+        
+    def previous_track(self):
+        self._client.previous()
+        
+    def fullscreen(self):
+        return
+        
+    def hide(self):
+        return
+        
+    def show(self):
+        return
+
+class Status(object):
     
     def __init__(self, host='localhost', port=6600):
         self.playing = False
@@ -80,27 +114,3 @@ class Media_Player(object):
         
     def attach_listener(self, listener):
         self._listener = listener
-
-    def play(self):
-        self._client.play()
-        
-    def pause(self):
-        self._client.pause(1)
-        
-    def stop(self):
-        self._client.stop()
-        
-    def next_track(self):
-        self._client.next()
-        
-    def previous_track(self):
-        self._client.previous()
-        
-    def fullscreen(self):
-        return
-        
-    def hide(self):
-        return
-        
-    def show(self):
-        return
