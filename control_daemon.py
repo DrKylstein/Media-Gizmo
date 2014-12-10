@@ -41,7 +41,7 @@ import argparse
 import serial
 #local
 from remote import Remote_Input
-import mediaplayer_banshee as banshee
+import mediaplayer_mpris2 as player
 
 REMOTE_CODES = {
    'play':'SONY_58B47',
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', default='/dev/ttyACM0', help='Serial port that Arduino is attached to')
     args = parser.parse_args()
 
-    logging.basicConfig(filename=os.path.expanduser('~/banshee_control.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(filename=os.path.expanduser('~/control_daemon.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     
     arduino = None
     remote = None
@@ -97,7 +97,7 @@ if __name__ == '__main__':
         arduino.port=args.port
         arduino.baudrate=9600
         remote = Remote_Input(arduino)
-        media_player = banshee.Control()
+        media_player = player.Control()
                                         
         remote.bind(REMOTE_CODES['play'], media_player.play)
         remote.bind(REMOTE_CODES['pause'], media_player.pause)

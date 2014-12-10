@@ -41,7 +41,7 @@ import subprocess
 import serial
 #local
 from text_display import LCD
-import mediaplayer_banshee as banshee
+import mediaplayer_mpris2 as player
 from weather_clock import WeatherClock
 
 TIME_PERIOD = 5
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', default='/dev/ttyACM0', help='Serial port that Arduino is attached to')
     args = parser.parse_args()
         
-    logging.basicConfig(filename=os.path.expanduser('~/banshee_display.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
+    logging.basicConfig(filename=os.path.expanduser('~/display_daemon.py.log'), level=logging.DEBUG, format='[%(asctime)s] %(message)s')
     
     arduino = None
     lcd = None
@@ -83,9 +83,9 @@ if __name__ == '__main__':
             if media_player.playing:
                 lcd.change_title('{} - {}'.format(title,artist))
             else:
-                lcd.change_title('Idle')
+                lcd.change_title('')
                 
-        media_player = banshee.Status()
+        media_player = player.Status()
         media_player.attach_listener(player_changed)
         
 
