@@ -100,6 +100,7 @@ if __name__ == '__main__':
     
     
     while True:
+        logging.getLogger().handlers[0].flush()
         try:
             if not arduino.isOpen():
                 arduino.open()

@@ -109,13 +109,13 @@ if __name__ == '__main__':
         remote.bind(REMOTE_CODES['menu'], media_player.show)
         remote.bind(REMOTE_CODES['power'], power)
         
-        remote.bind(REMOTE_CODES['up'], partial(subprocess.call, ['xdotool', 'key', 'Up']))
-        remote.bind(REMOTE_CODES['down'], partial(subprocess.call, ['xdotool', 'key', 'Down']))
-        remote.bind(REMOTE_CODES['left'], partial(subprocess.call, ['xdotool', 'key', 'Tab']))
-        remote.bind(REMOTE_CODES['right'], partial(subprocess.call, ['xdotool', 'key', 'shift+Tab']))
-        remote.bind(REMOTE_CODES['enter'], partial(subprocess.call, ['xdotool', 'key', 'Return']))
+        remote.bind(REMOTE_CODES['up'], partial(subprocess.call, ['xdotool', 'key', 'Page_Up']))
+        remote.bind(REMOTE_CODES['down'], partial(subprocess.call, ['xdotool', 'key', 'Page_Down']))
+        remote.bind(REMOTE_CODES['left'], partial(subprocess.call, ['xdotool', 'key', 'shift+Tab']))
+        remote.bind(REMOTE_CODES['right'], partial(subprocess.call, ['xdotool', 'key', 'Tab']))
+        remote.bind(REMOTE_CODES['enter'], partial(subprocess.call, ['xdotool', 'key', 'space']))
         remote.bind(REMOTE_CODES['exit'], partial(subprocess.call, ['xdotool', 'key', 'Escape']))
-        remote.bind(REMOTE_CODES['red'], partial(subprocess.call, ['xdotool', 'key', 'space']))
+        remote.bind(REMOTE_CODES['red'], partial(subprocess.call, ['xdotool', 'key', 'Return']))
         
     except:
         logging.exception('Error while starting up, cannot continue.')

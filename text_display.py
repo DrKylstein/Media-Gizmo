@@ -28,7 +28,7 @@
  # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
-from unidecode import unidecode
+#from unidecode import unidecode
 
 class LCD(object):
     
@@ -48,7 +48,7 @@ class LCD(object):
         self._serial = tty
     
     def _translate_text(self, text):
-        text = unidecode(text).encode('ascii', errors='ignore')
+        #text = unidecode(text).encode('ascii', errors='ignore')
         for pair in self._table:
             text = text.replace(pair[0], chr(pair[1]))
         return text

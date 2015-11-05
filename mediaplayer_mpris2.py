@@ -30,6 +30,7 @@
 import subprocess
 import dbus
 import re
+from unidecode import unidecode
 
 org_mpris_re = re.compile('^org\.mpris\.MediaPlayer2\.([^.]+)$')
 
@@ -145,11 +146,11 @@ class Status(object):
             player_props = dbus.Interface(root_obj, 'org.freedesktop.DBus.Properties')
             metadata =  player_props.Get('org.mpris.MediaPlayer2.Player', 'Metadata')
             if 'xesam:artist' in metadata:
-                artist = metadata['xesam:artist'][0]
+                artist = unidecode(metadata['xesam:artist'][0]).encode('ascii','replace')
             if 'xesam:title' in metadata:
-                title = metadata['xesam:title']
+                title = unidecode(metadata['xesam:title']).encode('ascii','replace')
             if 'xesam:album' in metadata:
-                album = metadata['xesam:album']
+                album = unidecode(metadata['xesam:album']).encode('ascii','replace')
             status = player_props.Get('org.mpris.MediaPlayer2.Player', 'PlaybackStatus')
             
         
