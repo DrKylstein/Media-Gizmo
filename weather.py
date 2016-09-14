@@ -46,9 +46,9 @@ class Weather(object):
         rss = feedparser.parse(self._url)
         self._data = {
             'current':dict(map(lambda a: a.split(': '), re.sub('<.+?>','', rss.entries[0].description).replace('&deg;F', '').replace('&deg;C', '').replace(' / ', '/').split(' | '))),
-            'today':rss.entries[1].description,
-            'tonight':rss.entries[1].description,
-            'tomorrow':rss.entries[1].description         
+            #'today':rss.entries[1].description,
+            #'tonight':rss.entries[1].description,
+            #'tomorrow':rss.entries[1].description         
         }
         self._last_time = time.time()
 
@@ -57,14 +57,14 @@ class Weather(object):
         if time.time() > self._last_time + (self._interval * 60):
             self.refresh()
 
-    def forecast_today(self):
-        return self._data['today']
+    #~ def forecast_today(self):
+        #~ return self._data['today']
         
-    def forecast_tonight(self):
-        return self._data['tonight']
+    #~ def forecast_tonight(self):
+        #~ return self._data['tonight']
         
-    def forecast_tomorrow(self):
-        return self._data['tomorrow']
+    #~ def forecast_tomorrow(self):
+        #~ return self._data['tomorrow']
         
     def current_conditions(self):
         return self._data['current']

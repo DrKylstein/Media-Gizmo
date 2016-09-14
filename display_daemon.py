@@ -110,7 +110,7 @@ if __name__ == '__main__':
             try:
                 weather_clock.poll()
             except:
-                logging.exception("Error getting weather/time data, possibly malformed rss.")
+                logging.exception("Error getting weather/time data, possibly malformed rss. ({})".format(weather_clock._weather._url))
                 
         except serial.SerialException:
             logging.error('Encountered serial error, will wait and retry.')
